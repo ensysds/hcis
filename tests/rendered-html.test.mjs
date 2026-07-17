@@ -18,7 +18,8 @@ test("server-renders Core ESS", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /Core — Employee Portal/i);
-  assert.match(html, /Menyiapkan Core/i);
+  assert.match(html, /Masuk ke Core/i);
+  assert.doesNotMatch(html, /Menyiapkan Core/i);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview/i);
 });
 
@@ -31,6 +32,7 @@ test("ships login, session, and logout endpoints", async () => {
   assert.match(login, /httpOnly:\s*true/);
   assert.match(login, /sameSite:\s*"lax"/);
   assert.match(session, /core_session/);
+  assert.match(session, /AbortSignal\.timeout\(1500\)/);
   assert.match(logout, /cookieStore\.delete\("core_session"\)/);
 });
 

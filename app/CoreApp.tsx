@@ -56,7 +56,6 @@ function liveClock() {
 
 export function CoreApp() {
   const [user, setUser] = useState<SessionUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
   const [active, setActive] = useState<NavKey>("beranda");
   const [clock, setClock] = useState(liveClock());
   const [checkedIn, setCheckedIn] = useState(true);
@@ -71,11 +70,14 @@ export function CoreApp() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 2000);
+    fetch("/api/auth/session", { cache: "no-store", signal: controller.signal })
       .then(async (response) => response.ok ? response.json() : Promise.reject())
       .then((payload) => setUser(payload.user))
       .catch(() => setUser(null))
-      .finally(() => setAuthLoading(false));
+      .finally(() => window.clearTimeout(timeout));
+    return () => { window.clearTimeout(timeout); controller.abort(); };
   }, []);
 
   useEffect(() => {
@@ -99,7 +101,6 @@ export function CoreApp() {
     setToast(checkedIn ? "Check-out berhasil dikirim ke HCIS" : "Check-in berhasil dikirim ke HCIS");
   };
 
-  if (authLoading) return <div className="auth-loading"><CoreLogo/><LoaderCircle className="spin"/><p>Menyiapkan Core...</p></div>;
   if (!user) return <LoginScreen onLogin={setUser}/>;
 
   return (

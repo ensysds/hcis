@@ -8,14 +8,23 @@ export async function GET() {
   const token = cookieStore.get("core_session")?.value;
   if (!token) return NextResponse.json({ message: "Belum login." }, { status: 401 });
 
-  const response = await fetch(`${HCIS_API_URL}/auth/session`, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${HCIS_API_URL}/auth/session`, {
+      headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(1500),
+    });
+  } catch {
+    return NextResponse.json({ message: "Pemeriksaan sesi terlalu lama." }, { status: 503 });
+  }
 
   if (!response.ok) {
-    cookieStore.delete("core_session");
-    return NextResponse.json({ message: "Sesi berakhir." }, { status: 401 });
+    if (response.status === 401 || response.status === 403) {
+      cookieStore.delete("core_session");
+      return NextResponse.json({ message: "Sesi berakhir." }, { status: 401 });
+    }
+    return NextResponse.json({ message: "HCIS belum merespons." }, { status: 503 });
   }
 
   return NextResponse.json(await response.json());
