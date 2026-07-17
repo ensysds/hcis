@@ -18,9 +18,20 @@ test("server-renders Core ESS", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /Core — Employee Self Service/i);
-  assert.match(html, /EMPLOYEE SELF SERVICE/i);
-  assert.match(html, /Kehadiran hari ini/i);
+  assert.match(html, /Menyiapkan Core/i);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview/i);
+});
+
+test("ships login, session, and logout endpoints", async () => {
+  const [login, session, logout] = await Promise.all([
+    readFile(new URL("app/api/auth/login/route.ts", root), "utf8"),
+    readFile(new URL("app/api/auth/session/route.ts", root), "utf8"),
+    readFile(new URL("app/api/auth/logout/route.ts", root), "utf8"),
+  ]);
+  assert.match(login, /httpOnly:\s*true/);
+  assert.match(login, /sameSite:\s*"lax"/);
+  assert.match(session, /core_session/);
+  assert.match(logout, /cookieStore\.delete\("core_session"\)/);
 });
 
 test("keeps the HCIS integration contract in the project", async () => {

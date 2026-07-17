@@ -1,0 +1,22 @@
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+
+const HCIS_API_URL = process.env.HCIS_API_URL ?? "https://hcis.ensys.id/api/core/v1";
+
+export async function GET() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("core_session")?.value;
+  if (!token) return NextResponse.json({ message: "Belum login." }, { status: 401 });
+
+  const response = await fetch(`${HCIS_API_URL}/auth/session`, {
+    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    cookieStore.delete("core_session");
+    return NextResponse.json({ message: "Sesi berakhir." }, { status: 401 });
+  }
+
+  return NextResponse.json(await response.json());
+}

@@ -1,14 +1,25 @@
 "use client";
 
 import {
-  Bell, CalendarDays, Check, ChevronRight, CircleDollarSign, Clock3,
+  Bell, CalendarDays, Check, ChevronRight, CircleDollarSign, Clock3, Eye, EyeOff,
   FileText, Fingerprint, Grid2X2, HandCoins, HeartPulse, Home, LogOut,
-  Menu, MessageSquareText, MoreHorizontal, Plane, ReceiptText, Search,
+  KeyRound, LoaderCircle, Menu, MessageSquareText, MoreHorizontal, Plane, ReceiptText, Search,
   ShieldCheck, Sparkles, TimerReset, UserRound, UsersRound, WalletCards, X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type NavKey = "beranda" | "aktivitas" | "layanan" | "persetujuan" | "profil";
+
+type SessionUser = {
+  id: number;
+  name: string;
+  email: string;
+  nrp: string | null;
+  company: string | null;
+  department: string | null;
+  position: string | null;
+  roles: string[];
+};
 
 const navItems: { key: NavKey; label: string; icon: typeof Home }[] = [
   { key: "beranda", label: "Beranda", icon: Home },
@@ -40,6 +51,8 @@ function liveClock() {
 }
 
 export function CoreApp() {
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [active, setActive] = useState<NavKey>("beranda");
   const [clock, setClock] = useState(liveClock());
   const [checkedIn, setCheckedIn] = useState(true);
@@ -53,12 +66,27 @@ export function CoreApp() {
   }, []);
 
   useEffect(() => {
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() : Promise.reject())
+      .then((payload) => setUser(payload.user))
+      .catch(() => setUser(null))
+      .finally(() => setAuthLoading(false));
+  }, []);
+
+  useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(""), 2800);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
   const title = useMemo(() => navItems.find((item) => item.key === active)?.label ?? "Beranda", [active]);
+  const initials = user?.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "KR";
+
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    setUser(null);
+    setActive("beranda");
+  };
 
   const finishAttendance = () => {
     setCheckedIn((value) => !value);
@@ -66,11 +94,14 @@ export function CoreApp() {
     setToast(checkedIn ? "Check-out berhasil dikirim ke HCIS" : "Check-in berhasil dikirim ke HCIS");
   };
 
+  if (authLoading) return <div className="auth-loading"><span className="brand-mark">c</span><LoaderCircle className="spin"/><p>Menyiapkan Core...</p></div>;
+  if (!user) return <LoginScreen onLogin={setUser}/>;
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark">c</span><span>core</span></div>
-        <div className="workspace-pill"><span className="avatar tiny">AR</span><div><strong>PT Sinar Utama</strong><small>Karyawan</small></div><ChevronRight size={16}/></div>
+        <div className="workspace-pill"><span className="avatar tiny">{initials}</span><div><strong>{user.company ?? "HCIS One"}</strong><small>{user.roles.includes("manager") ? "Manager" : "Karyawan"}</small></div><ChevronRight size={16}/></div>
         <nav className="side-nav">
           <p>RUANG KERJA</p>
           {navItems.map(({ key, label, icon: Icon }) => (
@@ -79,7 +110,7 @@ export function CoreApp() {
         </nav>
         <div className="sidebar-footer">
           <div className="sync-state"><span/><div><strong>Terhubung ke HCIS</strong><small>Data tersinkron otomatis</small></div></div>
-          <button><LogOut size={18}/> Keluar</button>
+          <button onClick={logout}><LogOut size={18}/> Keluar</button>
         </div>
       </aside>
 
@@ -90,18 +121,18 @@ export function CoreApp() {
           <div className="top-actions">
             <label className="search"><Search size={17}/><input aria-label="Cari layanan" placeholder="Cari layanan..."/></label>
             <button className="icon-button notification" aria-label="Notifikasi" onClick={() => setShowNotifs(!showNotifs)}><Bell size={20}/><span/></button>
-            <div className="profile-chip"><span className="avatar">AR</span><div><strong>Andi Ramadhan</strong><small>Product Designer</small></div><ChevronRight size={16}/></div>
+            <div className="profile-chip"><span className="avatar">{initials}</span><div><strong>{user.name}</strong><small>{user.position ?? user.email}</small></div><ChevronRight size={16}/></div>
           </div>
         </header>
 
         {showNotifs && <div className="notification-panel"><div className="panel-head"><b>Notifikasi</b><button onClick={() => setShowNotifs(false)}><X size={17}/></button></div><article><span className="notif-icon"><Check size={16}/></span><div><b>Cuti disetujui</b><p>Pengajuan 22–23 Juli telah disetujui atasan.</p><small>12 menit lalu</small></div></article><article><span className="notif-icon blue"><ReceiptText size={16}/></span><div><b>Slip gaji tersedia</b><p>Slip gaji Juni 2026 sudah dapat dilihat.</p><small>2 hari lalu</small></div></article></div>}
 
         <div className="content">
-          {active === "beranda" && <Dashboard clock={clock} checkedIn={checkedIn} openAttendance={() => setShowAttendance(true)} openServices={() => setActive("layanan")}/>} 
+          {active === "beranda" && <Dashboard user={user} clock={clock} checkedIn={checkedIn} openAttendance={() => setShowAttendance(true)} openServices={() => setActive("layanan")}/>} 
           {active === "aktivitas" && <ActivityPage/>}
           {active === "layanan" && <ServicesPage onAction={(name) => setToast(`${name} siap digunakan`)}/>} 
           {active === "persetujuan" && <ApprovalsPage onApprove={(name) => setToast(`Pengajuan ${name} disetujui dan dikirim ke HCIS`)}/>} 
-          {active === "profil" && <ProfilePage/>}
+          {active === "profil" && <ProfilePage user={user} initials={initials}/>} 
         </div>
       </main>
 
@@ -115,9 +146,9 @@ export function CoreApp() {
   );
 }
 
-function Dashboard({ clock, checkedIn, openAttendance, openServices }: { clock: string; checkedIn: boolean; openAttendance: () => void; openServices: () => void }) {
+function Dashboard({ user, clock, checkedIn, openAttendance, openServices }: { user: SessionUser; clock: string; checkedIn: boolean; openAttendance: () => void; openServices: () => void }) {
   return <>
-    <section className="welcome"><div><span className="date-chip"><CalendarDays size={14}/> Jumat, 17 Juli 2026</span><h2>Selamat pagi, Andi <span>👋</span></h2><p>Semoga harimu produktif. Semua kebutuhan kerja ada di sini.</p></div><div className="work-mode"><span/><div><small>MODE KERJA HARI INI</small><b>Work from Office</b></div><ChevronRight size={18}/></div></section>
+    <section className="welcome"><div><span className="date-chip"><CalendarDays size={14}/> Jumat, 17 Juli 2026</span><h2>Selamat pagi, {user.name.split(" ")[0]} <span>👋</span></h2><p>Semoga harimu produktif. Semua kebutuhan kerja ada di sini.</p></div><div className="work-mode"><span/><div><small>MODE KERJA HARI INI</small><b>Work from Office</b></div><ChevronRight size={18}/></div></section>
     <section className="dashboard-grid">
       <article className="attendance-card">
         <div className="attendance-head"><div><span className="live-dot"/> KEHADIRAN HARI INI</div><MoreHorizontal size={20}/></div>
@@ -146,4 +177,27 @@ function ServicesPage({onAction}:{onAction:(name:string)=>void}) { return <secti
 
 function ApprovalsPage({onApprove}:{onApprove:(name:string)=>void}) { const requests=[{name:"Nadia Sari",type:"Cuti tahunan",detail:"22–24 Juli · 3 hari",initial:"NS",tone:"peach"},{name:"Dimas Pratama",type:"Lembur",detail:"18 Juli · 3 jam",initial:"DP",tone:"blue-bg"},{name:"Ayu Lestari",type:"Koreksi absensi",detail:"15 Juli · Lupa check-out",initial:"AY",tone:"green-bg"}]; return <section className="page-panel"><div className="page-heading"><span className="heading-icon mint"><ShieldCheck/></span><div><h2>Persetujuan tim</h2><p>Tiga pengajuan membutuhkan keputusan Anda.</p></div></div><div className="approval-list">{requests.map(r=><article key={r.name}><span className={`avatar ${r.tone}`}>{r.initial}</span><div><b>{r.name}</b><h3>{r.type}</h3><p>{r.detail}</p></div><button className="ghost">Detail</button><button className="primary" onClick={()=>onApprove(r.name)}><Check size={16}/> Setujui</button></article>)}</div></section> }
 
-function ProfilePage() { return <section className="page-panel"><div className="profile-hero"><span className="avatar xl">AR</span><div><span>NRP 10428</span><h2>Andi Ramadhan</h2><p>Product Designer · Product & Technology</p></div><button className="ghost">Ubah data</button></div><div className="profile-grid"><article><small>INFORMASI KERJA</small><dl><div><dt>Perusahaan</dt><dd>PT Sinar Utama</dd></div><div><dt>Lokasi kerja</dt><dd>Gedung Harmoni, Jakarta</dd></div><div><dt>Atasan langsung</dt><dd>Raka Firmansyah</dd></div><div><dt>Tanggal bergabung</dt><dd>12 Februari 2021</dd></div></dl></article><article><small>KONTAK & AKUN</small><dl><div><dt>Email kantor</dt><dd>andi.ramadhan@demo.com</dd></div><div><dt>Nomor telepon</dt><dd>+62 812 3456 7890</dd></div><div><dt>Status data</dt><dd><span className="verified"><Check size={13}/> Terverifikasi HCIS</span></dd></div></dl></article></div></section> }
+function ProfilePage({user,initials}:{user:SessionUser;initials:string}) { return <section className="page-panel"><div className="profile-hero"><span className="avatar xl">{initials}</span><div><span>NRP {user.nrp ?? "—"}</span><h2>{user.name}</h2><p>{user.position ?? "Karyawan"} · {user.department ?? "Organisasi HCIS"}</p></div><button className="ghost">Ubah data</button></div><div className="profile-grid"><article><small>INFORMASI KERJA</small><dl><div><dt>Perusahaan</dt><dd>{user.company ?? "—"}</dd></div><div><dt>Departemen</dt><dd>{user.department ?? "—"}</dd></div><div><dt>Posisi</dt><dd>{user.position ?? "—"}</dd></div></dl></article><article><small>KONTAK & AKUN</small><dl><div><dt>Email kantor</dt><dd>{user.email}</dd></div><div><dt>NRP</dt><dd>{user.nrp ?? "—"}</dd></div><div><dt>Status data</dt><dd><span className="verified"><Check size={13}/> Terverifikasi HCIS</span></dd></div></dl></article></div></section> }
+
+function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoading(true); setError("");
+    try {
+      const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ login, password }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message ?? "Login gagal.");
+      onLogin(payload.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "HCIS tidak dapat dihubungi.");
+    } finally { setLoading(false); }
+  };
+
+  return <main className="login-page"><section className="login-brand-panel"><div className="login-brand"><span className="brand-mark">c</span><b>core</b></div><div className="login-message"><span>EMPLOYEE SELF SERVICE</span><h1>Satu tempat untuk<br/>semua kebutuhan kerja.</h1><p>Absensi, cuti, persetujuan, dan slip gaji Anda terhubung langsung dengan HCIS.</p><div className="login-features"><span><Check/>Data karyawan selalu sinkron</span><span><Check/>Aman untuk web dan mobile</span></div></div><small>Core · Terintegrasi dengan HCIS One</small></section><section className="login-form-panel"><form onSubmit={submit}><div className="mobile-login-brand"><span className="brand-mark">c</span><b>core</b></div><span className="login-kicker">SELAMAT DATANG</span><h2>Masuk ke Core</h2><p>Gunakan akun yang sama dengan HCIS.</p>{error && <div className="login-error">{error}</div>}<label>Email atau NRP<div className="login-input"><UserRound size={18}/><input autoFocus required value={login} onChange={(e)=>setLogin(e.target.value)} placeholder="nama@perusahaan.com" autoComplete="username"/></div></label><label>Kata sandi<div className="login-input"><KeyRound size={18}/><input required type={showPassword?"text":"password"} value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="Masukkan kata sandi" autoComplete="current-password"/><button type="button" aria-label={showPassword?"Sembunyikan kata sandi":"Tampilkan kata sandi"} onClick={()=>setShowPassword(!showPassword)}>{showPassword?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label><div className="login-options"><label><input type="checkbox"/> Ingat perangkat ini</label><button type="button">Lupa kata sandi?</button></div><button className="login-submit" disabled={loading}>{loading?<><LoaderCircle className="spin" size={18}/> Memverifikasi...</>:<>Masuk <ChevronRight size={18}/></>}</button><div className="secure-note"><ShieldCheck size={16}/> Sesi diamankan dan dicatat oleh HCIS</div></form></section></main>;
+}
