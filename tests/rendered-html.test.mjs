@@ -17,7 +17,7 @@ test("server-renders Core ESS", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /Core — Employee Self Service/i);
+  assert.match(html, /Core — Employee Portal/i);
   assert.match(html, /Menyiapkan Core/i);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview/i);
 });

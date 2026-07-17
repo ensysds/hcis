@@ -1,4 +1,4 @@
-# Core — Employee Self Service
+# Core — Employee Portal
 
 Core adalah portal karyawan yang responsif untuk web dan mobile. Seluruh master data Human Capital tetap dikelola oleh HCIS; Core menjadi pengalaman pengguna untuk absensi, cuti, lembur, approval, payroll, klaim, dokumen, aset, serta layanan karyawan lainnya.
 

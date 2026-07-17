@@ -1,6 +1,6 @@
 # Integrasi Core ↔ HCIS
 
-Core adalah aplikasi Employee Self Service. HCIS tetap menjadi sumber data utama untuk karyawan, organisasi, aturan waktu kerja, saldo cuti, dan payroll. Core tidak membuat salinan master data karyawan.
+Core adalah Employee Portal. HCIS tetap menjadi sumber data utama untuk karyawan, organisasi, aturan waktu kerja, saldo cuti, dan payroll. Core tidak membuat salinan master data karyawan.
 
 ## Kontrak API versi 1
 
