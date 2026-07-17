@@ -216,7 +216,6 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     <section className="login-brand-panel">
       <div className="login-brand"><CoreLogo/><b>core</b></div>
       <div className="login-message"><span>EMPLOYEE PORTAL</span><h1>Satu tempat untuk<br/>semua kebutuhan kerja.</h1><p>Absensi, cuti, persetujuan, dan slip gaji Anda terhubung langsung dengan HCIS.</p><div className="login-features"><span><Check/>Data karyawan selalu sinkron</span><span><Check/>Aman untuk web dan mobile</span></div></div>
-      <small>Core · Terintegrasi dengan HCIS One</small>
     </section>
     <section className="login-form-panel"><form onSubmit={submit}>
       <div className="mobile-login-brand"><CoreLogo/><b>core</b></div><span className="login-kicker">SELAMAT DATANG</span><h2>Masuk ke Core</h2><p>Gunakan akun yang sama dengan HCIS.</p>
@@ -224,7 +223,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
       <label>Email atau NRP<div className="login-input"><UserRound size={18}/><input autoFocus required value={login} onChange={(e)=>setLogin(e.target.value)} placeholder="nama@perusahaan.com" autoComplete="username"/></div></label>
       <label>Kata sandi<div className="login-input"><KeyRound size={18}/><input required type={showPassword?"text":"password"} value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="Masukkan kata sandi" autoComplete="current-password"/><button type="button" aria-label={showPassword?"Sembunyikan kata sandi":"Tampilkan kata sandi"} onClick={()=>setShowPassword(!showPassword)}>{showPassword?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
       <div className="login-options"><label><input type="checkbox"/> Ingat perangkat ini</label><button type="button">Lupa kata sandi?</button></div>
-      <button className="login-submit" disabled={loading}>{loading?<><LoaderCircle className="spin" size={18}/> Memverifikasi...</>:<>Masuk <ChevronRight size={18}/></>}</button><div className="secure-note"><ShieldCheck size={16}/> Sesi diamankan dan dicatat oleh HCIS</div>
+      <button className="login-submit" disabled={loading}>{loading?<><LoaderCircle className="spin" size={18}/> Memverifikasi...</>:<>Masuk <ChevronRight size={18}/></>}</button>
     </form></section>
   </main>;
 }
