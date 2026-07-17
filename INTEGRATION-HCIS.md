@@ -8,7 +8,8 @@ Base URL: `HCIS_API_URL` (contoh `http://localhost:8000/api/core/v1`).
 
 | Method | Endpoint | Fungsi |
 |---|---|---|
-| POST | `/auth/session` | Menukar identitas SSO menjadi sesi Core |
+| POST | `/auth/login` | Login karyawan dan membuat sesi Core |
+| GET | `/auth/session` | Memvalidasi sesi Core aktif |
 | GET | `/me/bootstrap` | Profil, perusahaan, hak akses, ringkasan dashboard |
 | GET | `/me/attendance` | Riwayat dan status absensi karyawan |
 | POST | `/me/attendance/check-in` | Check-in dengan waktu, lokasi, dan perangkat |
@@ -31,3 +32,9 @@ Base URL: `HCIS_API_URL` (contoh `http://localhost:8000/api/core/v1`).
 5. Core hanya menyimpan sesi, preferensi UI, token perangkat, dan cache singkat; bukan master data HR.
 6. Slip gaji dan dokumen privat diberikan melalui URL sementara yang kedaluwarsa.
 7. Seluruh request memakai HTTPS, token layanan antar-server, identitas pengguna, dan audit correlation ID.
+
+## Model akses modul
+
+Menu Core tidak ditentukan di front-end. HCIS menghitung akses efektif dari modul aktif perusahaan dan seluruh role Core milik karyawan. Respons `/me/bootstrap` hanya mengirim modul yang lolos kedua pemeriksaan tersebut beserta ability-nya, misalnya `view`, `create`, `consume`, `check_in`, atau `check_out`.
+
+Solusi lain seperti e-Procurement dan ERP nantinya menggunakan pola kontrak yang sama, tetapi tidak menjadi bagian dari integrasi tahap ini.

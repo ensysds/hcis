@@ -42,3 +42,15 @@ test("keeps the HCIS integration contract in the project", async () => {
   assert.match(contract, /Idempotency-Key/);
   assert.match(contract, /\/me\/attendance\/check-in/);
 });
+
+test("loads role-based HCIS modules and proxies attendance mutations", async () => {
+  const [bootstrap, attendance, app] = await Promise.all([
+    readFile(new URL("app/api/hcis/bootstrap/route.ts", root), "utf8"),
+    readFile(new URL("app/api/hcis/attendance/route.ts", root), "utf8"),
+    readFile(new URL("app/CoreApp.tsx", root), "utf8"),
+  ]);
+  assert.match(bootstrap, /\/me\/bootstrap/);
+  assert.match(attendance, /Idempotency-Key/);
+  assert.match(attendance, /\/me\/attendance\/\$\{input\.action\}/);
+  assert.match(app, /services\.filter\(\(service\) => moduleKeys\.has\(service\.module\)\)/);
+});
