@@ -1,12 +1,20 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { CORE_SESSION_COOKIE } from "../../../lib/core-session";
+import { demoCoreWorkspace, isDemoCoreToken, isDemoHcisMode } from "../../../lib/demo-hcis";
 
-const HCIS_API_URL = process.env.HCIS_API_URL ?? "https://hcis.ensys.id/api/core/v1";
+const HCIS_API_URL = process.env.HCIS_API_URL?.replace(/\/$/, "");
 
 export async function GET() {
   const cookieStore = await cookies();
-  const token = cookieStore.get("core_session")?.value;
+  const token = cookieStore.get(CORE_SESSION_COOKIE)?.value;
   if (!token) return NextResponse.json({ message: "Belum login." }, { status: 401 });
+
+  if (isDemoHcisMode()) {
+    if (isDemoCoreToken(token)) return NextResponse.json(demoCoreWorkspace);
+    cookieStore.delete(CORE_SESSION_COOKIE);
+    return NextResponse.json({ message: "Sesi berakhir." }, { status: 401 });
+  }
 
   try {
     const response = await fetch(`${HCIS_API_URL}/me/bootstrap`, {

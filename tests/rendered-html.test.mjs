@@ -24,16 +24,19 @@ test("server-renders Core ESS", async () => {
 });
 
 test("ships login, session, and logout endpoints", async () => {
-  const [login, session, logout] = await Promise.all([
+  const [login, session, logout, cookieHelper] = await Promise.all([
     readFile(new URL("app/api/auth/login/route.ts", root), "utf8"),
     readFile(new URL("app/api/auth/session/route.ts", root), "utf8"),
     readFile(new URL("app/api/auth/logout/route.ts", root), "utf8"),
+    readFile(new URL("app/lib/core-session.ts", root), "utf8"),
   ]);
-  assert.match(login, /httpOnly:\s*true/);
-  assert.match(login, /sameSite:\s*"lax"/);
-  assert.match(session, /core_session/);
+  assert.match(cookieHelper, /httpOnly:\s*true/);
+  assert.match(cookieHelper, /sameSite:\s*"lax"/);
+  assert.match(cookieHelper, /core_session/);
+  assert.match(login, /coreSessionCookieOptions/);
+  assert.match(session, /CORE_SESSION_COOKIE/);
   assert.match(session, /AbortSignal\.timeout\(1500\)/);
-  assert.match(logout, /cookieStore\.delete\("core_session"\)/);
+  assert.match(logout, /cookieStore\.delete\(CORE_SESSION_COOKIE\)/);
 });
 
 test("keeps the HCIS integration contract in the project", async () => {
