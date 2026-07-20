@@ -240,8 +240,9 @@ function Dashboard({ user, clock, currentDate, checkedIn, services: userServices
       </article>}
 
       <div className="stat-column">
-        {modules.has("leave") && <article className="mini-stat leave"><span><Plane size={21}/></span><div><small>SISA CUTI</small><h3>{summary?.leave_remaining ?? 0} <em>hari</em></h3><p>saldo akhir</p></div><ChevronRight size={18}/></article>}
+        {modules.has("leave") && <article className="mini-stat leave"><span><Plane size={21}/></span><div><small>SISA CUTI</small><h3>{summary?.leave_remaining ?? 0} <em>hari</em></h3><p>dari total hari cuti</p></div><ChevronRight size={18}/></article>}
         {modules.has("payroll") && <article className="mini-stat payroll"><span><CircleDollarSign size={21}/></span><div><small>SLIP GAJI</small><h3>{summary?.latest_payslip?.period ?? "Belum tersedia"}</h3><p><i/> {summary?.latest_payslip ? "Sudah diterbitkan" : "Menunggu publikasi"}</p></div><ChevronRight size={18}/></article>}
+        <button type="button" className="mini-stat all-apps" onClick={openServices}><span><Grid2X2 size={21}/></span><div><small>ALL APPS</small><h3>All Apps</h3><p>Modul terintegrasi</p></div><ChevronRight size={18}/></button>
         {user.roles.some((role) => ["manager", "general_manager", "director"].includes(role)) && <article className="mini-stat approval"><span><ShieldCheck size={21}/></span><div><small>PERLU PERSETUJUAN</small><h3>3 <em>pengajuan</em></h3><p>Dari anggota tim Anda</p></div><ChevronRight size={18}/></article>}
       </div>
     </section>

@@ -74,3 +74,17 @@ html,body{background:var(--bg)}
     white-space:nowrap;
   }
 }
+
+.mini-stat.all-apps{
+  text-align:left;
+  transition:.2s;
+}
+.mini-stat.all-apps>span{
+  background:#eaf6ff;
+  color:#0c79d8;
+}
+.mini-stat.all-apps:hover{
+  border-color:#9fdcff;
+  transform:translateY(-1px);
+  box-shadow:0 7px 20px rgba(12,121,216,.08);
+}

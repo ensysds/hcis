@@ -66,7 +66,10 @@ test("loads role-based HCIS modules and proxies attendance mutations", async () 
   assert.match(attendance, /Idempotency-Key/);
   assert.match(attendance, /\/me\/attendance\/\$\{input\.action\}/);
   assert.match(app, /services\.filter\(\(service\) => moduleKeys\.has\(service\.module\)\)/);
-  assert.match(app, /saldo akhir/);
+  assert.match(app, /dari total hari cuti/);
+  assert.match(app, /All Apps/);
+  assert.match(app, /Modul terintegrasi/);
+  assert.doesNotMatch(app, /saldo akhir/);
   assert.match(app, /timeZone:\s*"Asia\/Jakarta"/);
   assert.match(app, /function greetingForClock\(clock: string\)/);
   assert.match(app, /Selamat malam/);
