@@ -28,8 +28,9 @@ test("server-renders the iPhone 17 Pro Max mobile preview", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /iPhone 17 Pro Max/i);
-  assert.match(html, /440 x 956 CSS px/i);
-  assert.match(html, /1320 x 2868 px @3x/i);
+  assert.match(html, /width:\s*440px/i);
+  assert.match(html, /height:\s*956px/i);
+  assert.doesNotMatch(html, /mobile-preview-phone|mobile-preview-island|CORE MOBILE PREVIEW/i);
 });
 
 test("ships login, session, and logout endpoints", async () => {
