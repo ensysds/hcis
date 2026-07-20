@@ -40,3 +40,37 @@ html,body{background:var(--bg)}
 .mint{background:#eaf6ff;color:#0c79d8}.teal{background:#e8f7ff;color:#087fa8}.violet{background:#eeeafd;color:#6655c7}
 .service-records article>span:first-child{background:#eaf6ff;color:#0c69b8}
 .service-detail-foot>span svg{color:#0c79d8}
+
+@media(max-width:760px){
+  html,body,.content,.filter-row{
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+  }
+  html::-webkit-scrollbar,body::-webkit-scrollbar,.content::-webkit-scrollbar,.filter-row::-webkit-scrollbar{
+    display:none;
+    width:0;
+    height:0;
+  }
+  .bottom-nav{
+    align-items:center;
+    height:68px;
+    padding:7px max(10px,env(safe-area-inset-left)) max(7px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-right));
+  }
+  .bottom-nav button{
+    min-width:0;
+    height:52px;
+    gap:3px;
+  }
+  .bottom-nav button span{
+    width:24px;
+    height:24px;
+    display:grid;
+    place-items:center;
+  }
+  .bottom-nav small{
+    width:100%;
+    text-align:center;
+    line-height:1;
+    white-space:nowrap;
+  }
+}

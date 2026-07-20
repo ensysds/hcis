@@ -66,4 +66,6 @@ test("loads role-based HCIS modules and proxies attendance mutations", async () 
   assert.match(attendance, /Idempotency-Key/);
   assert.match(attendance, /\/me\/attendance\/\$\{input\.action\}/);
   assert.match(app, /services\.filter\(\(service\) => moduleKeys\.has\(service\.module\)\)/);
+  assert.match(app, /saldo akhir/);
+  assert.doesNotMatch(app, /Pinjaman|module:\s*"loan"/);
 });

@@ -26,6 +26,14 @@ const mobilePreviewCss = `
   place-items: start center;
   overflow-x: auto;
   background: #f4f8fd;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.mobile-preview-page::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .mobile-preview-screen {

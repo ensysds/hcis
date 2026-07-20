@@ -2,7 +2,7 @@
 
 import {
   Bell, CalendarDays, Check, ChevronRight, CircleDollarSign, Clock3, Eye, EyeOff,
-  FileText, Fingerprint, Grid2X2, HandCoins, HeartPulse, Home, LogOut,
+  FileText, Fingerprint, Grid2X2, HeartPulse, Home, LogOut,
   KeyRound, LoaderCircle, MessageSquareText, MoreHorizontal, Plane, ReceiptText, Search,
   ShieldCheck, Sparkles, TimerReset, UserRound, UsersRound, WalletCards, X,
 } from "lucide-react";
@@ -50,7 +50,6 @@ const services = [
   { module: "overtime", title: "Ajukan lembur", note: "Klaim jam tambahan", icon: Clock3, tone: "violet" },
   { module: "payroll", title: "Slip gaji", note: "Dokumen payroll pribadi", icon: ReceiptText, tone: "amber" },
   { module: "claim", title: "Reimbursement", note: "Ajukan penggantian", icon: WalletCards, tone: "rose" },
-  { module: "loan", title: "Pinjaman", note: "Cek plafon & cicilan", icon: HandCoins, tone: "teal" },
   { module: "document", title: "Dokumen", note: "Surat & formulir", icon: FileText, tone: "blue" },
   { module: "bpjs", title: "Kesejahteraan", note: "BPJS & benefit", icon: HeartPulse, tone: "coral" },
   { module: "learning", title: "Learning", note: "Course, assessment & sertifikat", icon: Sparkles, tone: "violet" },
@@ -187,7 +186,7 @@ export function CoreApp() {
         </div>
       </main>
 
-      <nav className="bottom-nav">
+      <nav className="bottom-nav" style={{ gridTemplateColumns: `repeat(${visibleNavItems.length}, minmax(0, 1fr))` }}>
         {visibleNavItems.map(({ key, label, icon: Icon }) => <button key={key} className={active === key ? "active" : ""} onClick={() => setActive(key)}><span><Icon size={20}/>{key === "persetujuan" && <i>3</i>}</span><small>{label}</small></button>)}
       </nav>
 
@@ -211,7 +210,7 @@ function Dashboard({ user, clock, checkedIn, services: userServices, modules, su
       </article>}
 
       <div className="stat-column">
-        {modules.has("leave") && <article className="mini-stat leave"><span><Plane size={21}/></span><div><small>SISA CUTI</small><h3>{summary?.leave_remaining ?? 0} <em>hari</em></h3><p>saldo aktif tahun ini</p></div><ChevronRight size={18}/></article>}
+        {modules.has("leave") && <article className="mini-stat leave"><span><Plane size={21}/></span><div><small>SISA CUTI</small><h3>{summary?.leave_remaining ?? 0} <em>hari</em></h3><p>saldo akhir</p></div><ChevronRight size={18}/></article>}
         {modules.has("payroll") && <article className="mini-stat payroll"><span><CircleDollarSign size={21}/></span><div><small>SLIP GAJI</small><h3>{summary?.latest_payslip?.period ?? "Belum tersedia"}</h3><p><i/> {summary?.latest_payslip ? "Sudah diterbitkan" : "Menunggu publikasi"}</p></div><ChevronRight size={18}/></article>}
         {user.roles.some((role) => ["manager", "general_manager", "director"].includes(role)) && <article className="mini-stat approval"><span><ShieldCheck size={21}/></span><div><small>PERLU PERSETUJUAN</small><h3>3 <em>pengajuan</em></h3><p>Dari anggota tim Anda</p></div><ChevronRight size={18}/></article>}
       </div>
