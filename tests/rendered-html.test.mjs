@@ -4,11 +4,11 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-async function render() {
+async function render(path = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
-  return worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), {
+  return worker.fetch(new Request(new URL(path, "http://localhost/"), { headers: { accept: "text/html" } }), {
     ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
   }, { waitUntil() {}, passThroughOnException() {} });
 }
@@ -21,6 +21,15 @@ test("server-renders Core ESS", async () => {
   assert.match(html, /Masuk ke Core/i);
   assert.doesNotMatch(html, /Menyiapkan Core/i);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview/i);
+});
+
+test("server-renders the iPhone 17 Pro Max mobile preview", async () => {
+  const response = await render("/mobile");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /iPhone 17 Pro Max/i);
+  assert.match(html, /440 x 956 CSS px/i);
+  assert.match(html, /1320 x 2868 px @3x/i);
 });
 
 test("ships login, session, and logout endpoints", async () => {
