@@ -65,7 +65,31 @@ const activities = [
 ];
 
 function liveClock() {
-  return new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date()).replaceAll(".", ":");
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(new Date()).replaceAll(".", ":");
+}
+
+function liveDate() {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+}
+
+function greetingForClock(clock: string) {
+  const hour = Number(clock.split(":")[0]) % 24;
+  if (hour >= 4 && hour < 11) return "Selamat pagi";
+  if (hour >= 11 && hour < 15) return "Selamat siang";
+  if (hour >= 15 && hour < 18) return "Selamat sore";
+  return "Selamat malam";
 }
 
 export function CoreApp() {
@@ -73,6 +97,7 @@ export function CoreApp() {
   const [workspace, setWorkspace] = useState<CoreWorkspace | null>(null);
   const [active, setActive] = useState<NavKey>("beranda");
   const [clock, setClock] = useState(liveClock());
+  const [currentDate, setCurrentDate] = useState(liveDate());
   const [checkedIn, setCheckedIn] = useState(false);
   const [showAttendance, setShowAttendance] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -80,7 +105,10 @@ export function CoreApp() {
   const [toast, setToast] = useState("");
 
   useEffect(() => {
-    const timer = window.setInterval(() => setClock(liveClock()), 1000);
+    const timer = window.setInterval(() => {
+      setClock(liveClock());
+      setCurrentDate(liveDate());
+    }, 1000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -178,7 +206,7 @@ export function CoreApp() {
         {showNotifs && <div className="notification-panel"><div className="panel-head"><b>Notifikasi</b><button onClick={() => setShowNotifs(false)}><X size={17}/></button></div>{moduleKeys.has("leave") && <article><span className="notif-icon"><Check size={16}/></span><div><b>Cuti disetujui</b><p>Pengajuan 22–23 Juli telah disetujui atasan.</p><small>12 menit lalu</small></div></article>}{moduleKeys.has("payroll") && <article><span className="notif-icon blue"><ReceiptText size={16}/></span><div><b>Slip gaji tersedia</b><p>Slip gaji terbaru sudah dapat dilihat.</p><small>2 hari lalu</small></div></article>}{!moduleKeys.has("leave") && !moduleKeys.has("payroll") && <article><div><b>Belum ada notifikasi</b><p>Notifikasi akan muncul sesuai layanan yang diberikan kepada Anda.</p></div></article>}</div>}
 
         <div className="content">
-          {active === "beranda" && <Dashboard user={user} clock={clock} checkedIn={checkedIn} services={availableServices} modules={moduleKeys} summary={workspace?.summary ?? null} openAttendance={() => setShowAttendance(true)} openServices={() => setActive("layanan")} openService={setSelectedService}/>}
+          {active === "beranda" && <Dashboard user={user} clock={clock} currentDate={currentDate} checkedIn={checkedIn} services={availableServices} modules={moduleKeys} summary={workspace?.summary ?? null} openAttendance={() => setShowAttendance(true)} openServices={() => setActive("layanan")} openService={setSelectedService}/>}
           {active === "aktivitas" && <ActivityPage modules={moduleKeys}/>}
           {active === "layanan" && <ServicesPage services={availableServices} onAction={setSelectedService}/>}
           {active === "persetujuan" && <ApprovalsPage onApprove={(name) => setToast(`Pengajuan ${name} disetujui dan dikirim ke HCIS`)}/>} 
@@ -197,9 +225,11 @@ export function CoreApp() {
   );
 }
 
-function Dashboard({ user, clock, checkedIn, services: userServices, modules, summary, openAttendance, openServices, openService }: { user: SessionUser; clock: string; checkedIn: boolean; services: typeof services; modules: Set<string>; summary: CoreWorkspace["summary"] | null; openAttendance: () => void; openServices: () => void; openService: (title: string) => void }) {
+function Dashboard({ user, clock, currentDate, checkedIn, services: userServices, modules, summary, openAttendance, openServices, openService }: { user: SessionUser; clock: string; currentDate: string; checkedIn: boolean; services: typeof services; modules: Set<string>; summary: CoreWorkspace["summary"] | null; openAttendance: () => void; openServices: () => void; openService: (title: string) => void }) {
+  const greeting = greetingForClock(clock);
+
   return <>
-    <section className="welcome"><div><span className="date-chip"><CalendarDays size={14}/> Jumat, 17 Juli 2026</span><h2>Selamat pagi, {user.name.split(" ")[0]} <span>👋</span></h2><p>Semoga harimu produktif. Semua kebutuhan kerja ada di sini.</p></div><div className="work-mode"><span/><div><small>MODE KERJA HARI INI</small><b>Work from Office</b></div><ChevronRight size={18}/></div></section>
+    <section className="welcome"><div><span className="date-chip"><CalendarDays size={14}/> {currentDate}</span><h2>{greeting}, {user.name.split(" ")[0]} <span>👋</span></h2><p>Semoga harimu produktif. Semua kebutuhan kerja ada di sini.</p></div><div className="work-mode"><span/><div><small>MODE KERJA HARI INI</small><b>Work from Office</b></div><ChevronRight size={18}/></div></section>
     <section className="dashboard-grid">
       {modules.has("attendance") && <article className="attendance-card">
         <div className="attendance-head"><div><span className="live-dot"/> KEHADIRAN HARI INI</div><MoreHorizontal size={20}/></div>
