@@ -13,13 +13,13 @@ async function render(path = "/") {
   }, { waitUntil() {}, passThroughOnException() {} });
 }
 
-test("server-renders Core ESS", async () => {
+test("server-renders Core auth check shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /Core — Employee Portal/i);
-  assert.match(html, /Masuk ke Core/i);
-  assert.doesNotMatch(html, /Menyiapkan Core/i);
+  assert.match(html, /Menyiapkan Core/i);
+  assert.doesNotMatch(html, /Masuk ke Core/i);
   assert.doesNotMatch(html, /codex-preview|SkeletonPreview/i);
 });
 
@@ -67,7 +67,7 @@ test("loads role-based HCIS modules and proxies attendance mutations", async () 
   assert.match(attendance, /\/me\/attendance\/\$\{input\.action\}/);
   assert.match(app, /services\.filter\(\(service\) => moduleKeys\.has\(service\.module\)\)/);
   assert.match(app, /dari total hari cuti/);
-  assert.match(app, /All Apps/);
+  assert.match(app, /Semua Layanan/);
   assert.match(app, /Modul terintegrasi/);
   assert.doesNotMatch(app, /saldo akhir/);
   assert.match(app, /timeZone:\s*"Asia\/Jakarta"/);

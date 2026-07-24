@@ -2,13 +2,15 @@
 
 Core adalah Employee Portal. HCIS tetap menjadi sumber data utama untuk karyawan, organisasi, aturan waktu kerja, saldo cuti, dan payroll. Core tidak membuat salinan master data karyawan.
 
+Akun Core adalah akun employee/self-service. Akun ini melekat ke record `employees` di HCIS dan dapat login memakai NRP atau email karyawan, tetapi bukan akun admin/PIC HCIS dari tabel user back office. Karyawan dapat memiliki akun Core tanpa memiliki akses login ke HCIS.
+
 ## Kontrak API versi 1
 
 Base URL: `HCIS_API_URL` (contoh `http://localhost:8000/api/core/v1`).
 
 | Method | Endpoint | Fungsi |
 |---|---|---|
-| POST | `/auth/login` | Login karyawan dan membuat sesi Core |
+| POST | `/auth/login` | Login akun Core karyawan dan membuat sesi Core |
 | GET | `/auth/session` | Memvalidasi sesi Core aktif |
 | GET | `/me/bootstrap` | Profil, perusahaan, hak akses, ringkasan dashboard |
 | GET | `/me/attendance` | Riwayat dan status absensi karyawan |

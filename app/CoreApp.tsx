@@ -94,6 +94,7 @@ function greetingForClock(clock: string) {
 
 export function CoreApp() {
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [workspace, setWorkspace] = useState<CoreWorkspace | null>(null);
   const [active, setActive] = useState<NavKey>("beranda");
   const [clock, setClock] = useState(liveClock());
@@ -125,19 +126,31 @@ export function CoreApp() {
         setWorkspace(payload);
         setCheckedIn(Boolean(payload.summary.attendance?.check_in_at && !payload.summary.attendance?.check_out_at));
       })
-      .catch((error) => setToast(error instanceof Error ? error.message : "Akses HCIS tidak dapat dimuat."));
+      .catch((error) => setToast(error instanceof Error ? error.message : "Akses Core tidak dapat dimuat."));
     return () => controller.abort();
   }, [user]);
 
   useEffect(() => {
     const controller = new AbortController();
+    let cancelled = false;
     const timeout = window.setTimeout(() => controller.abort(), 2000);
     fetch("/api/auth/session", { cache: "no-store", signal: controller.signal })
       .then(async (response) => response.ok ? response.json() : Promise.reject())
-      .then((payload) => setUser(payload.user))
-      .catch(() => setUser(null))
-      .finally(() => window.clearTimeout(timeout));
-    return () => { window.clearTimeout(timeout); controller.abort(); };
+      .then((payload) => {
+        if (!cancelled) setUser(payload.user);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      })
+      .finally(() => {
+        window.clearTimeout(timeout);
+        if (!cancelled) setAuthChecked(true);
+      });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
 
   useEffect(() => {
@@ -169,10 +182,11 @@ export function CoreApp() {
       setShowAttendance(false);
       setToast(payload.message ?? (checkedIn ? "Check-out berhasil." : "Check-in berhasil."));
     } catch (error) {
-      setToast(error instanceof Error ? error.message : "HCIS tidak dapat dihubungi.");
+      setToast(error instanceof Error ? error.message : "Layanan Core belum dapat dihubungi.");
     }
   };
 
+  if (!authChecked) return <AuthLoading/>;
   if (!user) return <LoginScreen onLogin={setUser}/>;
 
   return (
@@ -225,6 +239,10 @@ export function CoreApp() {
   );
 }
 
+function AuthLoading() {
+  return <main className="auth-loading"><CoreLogo/><LoaderCircle className="spin" size={20}/><p>Menyiapkan Core...</p></main>;
+}
+
 function Dashboard({ user, clock, currentDate, checkedIn, services: userServices, modules, summary, openAttendance, openServices, openService }: { user: SessionUser; clock: string; currentDate: string; checkedIn: boolean; services: typeof services; modules: Set<string>; summary: CoreWorkspace["summary"] | null; openAttendance: () => void; openServices: () => void; openService: (title: string) => void }) {
   const greeting = greetingForClock(clock);
 
@@ -242,12 +260,12 @@ function Dashboard({ user, clock, currentDate, checkedIn, services: userServices
       <div className="stat-column">
         {modules.has("leave") && <article className="mini-stat leave"><span><Plane size={21}/></span><div><small>SISA CUTI</small><h3>{summary?.leave_remaining ?? 0} <em>hari</em></h3><p>dari total hari cuti</p></div><ChevronRight size={18}/></article>}
         {modules.has("payroll") && <article className="mini-stat payroll"><span><CircleDollarSign size={21}/></span><div><small>SLIP GAJI</small><h3>{summary?.latest_payslip?.period ?? "Belum tersedia"}</h3><p><i/> {summary?.latest_payslip ? "Sudah diterbitkan" : "Menunggu publikasi"}</p></div><ChevronRight size={18}/></article>}
-        <button type="button" className="mini-stat all-apps" onClick={openServices}><span><Grid2X2 size={21}/></span><div><small>ALL APPS</small><h3>All Apps</h3><p>Modul terintegrasi</p></div><ChevronRight size={18}/></button>
+        <button type="button" className="mini-stat all-apps" onClick={openServices}><span><Grid2X2 size={21}/></span><div><small>SEMUA LAYANAN</small><h3>Semua Layanan</h3><p>Modul terintegrasi</p></div><ChevronRight size={18}/></button>
         {user.roles.some((role) => ["manager", "general_manager", "director"].includes(role)) && <article className="mini-stat approval"><span><ShieldCheck size={21}/></span><div><small>PERLU PERSETUJUAN</small><h3>3 <em>pengajuan</em></h3><p>Dari anggota tim Anda</p></div><ChevronRight size={18}/></article>}
       </div>
     </section>
 
-    <section className="section-block"><div className="section-title"><div><h2>Akses cepat</h2><p>Layanan HCIS sesuai role Anda</p></div><button onClick={openServices}>Lihat semua <ChevronRight size={16}/></button></div><div className="service-grid">{userServices.slice(0,6).map(({title,note,icon:Icon,tone}) => <button className="service-card" key={title} onClick={() => openService(title)}><span className={tone}><Icon size={22}/></span><div><b>{title}</b><small>{note}</small></div><ChevronRight size={17}/></button>)}</div>{userServices.length === 0 && <p className="empty-access">Belum ada layanan yang diberikan untuk role Core Anda.</p>}</section>
+    <section className="section-block"><div className="section-title"><div><h2>Akses cepat</h2><p>Layanan sesuai role Core Anda</p></div><button onClick={openServices}>Lihat semua <ChevronRight size={16}/></button></div><div className="service-grid">{userServices.slice(0,6).map(({title,note,icon:Icon,tone}) => <button className="service-card" key={title} onClick={() => openService(title)}><span className={tone}><Icon size={22}/></span><div><b>{title}</b><small>{note}</small></div><ChevronRight size={17}/></button>)}</div>{userServices.length === 0 && <p className="empty-access">Belum ada layanan yang diberikan untuk role Core Anda.</p>}</section>
 
     <section className="two-column"><article className="panel"><div className="section-title compact"><div><h2>Aktivitas terkini</h2><p>Semua transaksi tersinkron ke HCIS</p></div><button>Lihat riwayat</button></div><div className="activity-list">{activities.filter((activity) => modules.has(activity.module)).map((a) => <div className="activity-item" key={`${a.module}-${a.day}`}><div className="calendar-box"><b>{a.day}</b><small>{a.month}</small></div><div><b>{a.title}</b><p>{a.detail}</p></div><span className={`status ${a.kind}`}>{a.status}</span></div>)}{activities.every((activity) => !modules.has(activity.module)) && <p className="empty-access">Belum ada aktivitas dari layanan Anda.</p>}</div></article>{modules.has("attendance") && user.roles.some((role) => ["manager", "general_manager", "director"].includes(role)) && <article className="panel team"><div className="section-title compact"><div><h2>Tim hari ini</h2><p>Ringkasan kehadiran anggota tim</p></div><button><UsersRound size={17}/></button></div><div className="team-chart"><div className="donut"><span><b>8</b><small>Anggota</small></span></div><ul><li><i className="green"/>Hadir <b>6</b></li><li><i className="orange"/>Cuti <b>1</b></li><li><i className="gray"/>Belum hadir <b>1</b></li></ul></div><div className="team-avatars"><span className="avatar peach">NS</span><span className="avatar blue-bg">DP</span><span className="avatar green-bg">AY</span><span className="avatar purple-bg">RF</span><span className="avatar">+4</span><small>6 dari 8 sudah hadir</small></div></article>}</section>
   </>;
@@ -255,18 +273,18 @@ function Dashboard({ user, clock, currentDate, checkedIn, services: userServices
 
 function ActivityPage({modules}:{modules:Set<string>}) { const records=activities.concat([{module:"leave",day:"14",month:"JUL",title:"Pengajuan cuti tahunan",detail:"22–23 Juli 2026 · 2 hari",status:"Disetujui",kind:"success"},{module:"claim",day:"11",month:"JUL",title:"Klaim transportasi",detail:"Kunjungan klien · Rp175.000",status:"Diproses",kind:"active"}]).filter((record)=>modules.has(record.module)); return <section className="page-panel"><div className="page-heading"><span className="heading-icon sky"><Clock3/></span><div><h2>Aktivitas saya</h2><p>Riwayat transaksi dari modul HCIS yang dapat Anda akses.</p></div></div><div className="filter-row"><button className="selected">Semua</button>{modules.has("attendance")&&<button>Kehadiran</button>}{modules.has("leave")&&<button>Cuti</button>}{modules.has("overtime")&&<button>Lembur</button>}{modules.has("claim")&&<button>Klaim</button>}</div><div className="activity-list large">{records.map((a,i)=><div className="activity-item" key={i}><div className="calendar-box"><b>{a.day}</b><small>{a.month}</small></div><div><b>{a.title}</b><p>{a.detail}</p></div><span className={`status ${a.kind}`}>{a.status}</span><ChevronRight size={17}/></div>)}{records.length===0&&<p className="empty-access">Belum ada aktivitas untuk modul yang diberikan kepada Anda.</p>}</div></section> }
 
-function ServicesPage({services: userServices,onAction}:{services:typeof services;onAction:(name:string)=>void}) { return <section className="page-panel"><div className="page-heading"><span className="heading-icon violet"><Sparkles/></span><div><h2>Layanan karyawan</h2><p>Menu ini diberikan HCIS berdasarkan perusahaan dan role Anda.</p></div></div><div className="all-services">{userServices.map(({title,note,icon:Icon,tone})=><button key={title} onClick={()=>onAction(title)}><span className={tone}><Icon/></span><div><b>{title}</b><p>{note}</p></div><ChevronRight/></button>)}</div>{userServices.length === 0 && <p className="empty-access">Belum ada modul HCIS aktif untuk akun Anda.</p>}</section> }
+function ServicesPage({services: userServices,onAction}:{services:typeof services;onAction:(name:string)=>void}) { return <section className="page-panel"><div className="page-heading"><span className="heading-icon violet"><Sparkles/></span><div><h2>Layanan karyawan</h2><p>Menu ini diberikan berdasarkan perusahaan dan role Core Anda.</p></div></div><div className="all-services">{userServices.map(({title,note,icon:Icon,tone})=><button key={title} onClick={()=>onAction(title)}><span className={tone}><Icon/></span><div><b>{title}</b><p>{note}</p></div><ChevronRight/></button>)}</div>{userServices.length === 0 && <p className="empty-access">Belum ada modul aktif untuk akun Core Anda.</p>}</section> }
 
 function ServiceDetail({ title, close, action }: { title: string; close: () => void; action: (message: string) => void }) {
   const service = services.find((item) => item.title === title) ?? services[0];
   const Icon = service.icon;
   const isDocument = title === "Slip gaji" || title === "Dokumen" || title === "Kesejahteraan";
-  return <div className="modal-backdrop service-backdrop" onMouseDown={close}><section className="service-detail" onMouseDown={(event) => event.stopPropagation()}><div className="service-detail-head"><span className={service.tone}><Icon/></span><div><small>LAYANAN KARYAWAN</small><h2>{title}</h2><p>{service.note}</p></div><button onClick={close} aria-label="Tutup"><X/></button></div>{isDocument ? <div className="service-records"><article><span><FileText/></span><div><b>{title === "Slip gaji" ? "Juni 2026" : title === "Dokumen" ? "Surat Keterangan Kerja" : "Kepesertaan BPJS"}</b><p>{title === "Slip gaji" ? "Diterbitkan 28 Juni 2026" : "Data terakhir dari HCIS"}</p></div><span className="status success">Tersedia</span></article><article><span><FileText/></span><div><b>{title === "Slip gaji" ? "Mei 2026" : "Riwayat sebelumnya"}</b><p>Tersimpan di pusat dokumen HCIS</p></div><ChevronRight/></article></div> : <div className="service-form"><label>Jenis pengajuan<select defaultValue=""><option value="" disabled>Pilih jenis</option><option>Pengajuan baru</option><option>Koreksi / perubahan</option></select></label><label>Periode / tanggal<input type="date"/></label><label className="full">Keterangan<textarea placeholder={`Tuliskan detail ${title.toLowerCase()} Anda`}/></label></div>}<div className="service-detail-foot"><span><ShieldCheck/> Akun terverifikasi HCIS</span><div><button className="ghost" onClick={close}>Tutup</button><button className="primary" onClick={() => action(isDocument ? `${title} berhasil dibuka` : `Form ${title.toLowerCase()} sudah aktif`)}>{isDocument ? "Lihat dokumen" : "Lanjutkan"}<ChevronRight size={15}/></button></div></div></section></div>;
+  return <div className="modal-backdrop service-backdrop" onMouseDown={close}><section className="service-detail" onMouseDown={(event) => event.stopPropagation()}><div className="service-detail-head"><span className={service.tone}><Icon/></span><div><small>LAYANAN KARYAWAN</small><h2>{title}</h2><p>{service.note}</p></div><button onClick={close} aria-label="Tutup"><X/></button></div>{isDocument ? <div className="service-records"><article><span><FileText/></span><div><b>{title === "Slip gaji" ? "Juni 2026" : title === "Dokumen" ? "Surat Keterangan Kerja" : "Kepesertaan BPJS"}</b><p>{title === "Slip gaji" ? "Diterbitkan 28 Juni 2026" : "Data terakhir dari HCIS"}</p></div><span className="status success">Tersedia</span></article><article><span><FileText/></span><div><b>{title === "Slip gaji" ? "Mei 2026" : "Riwayat sebelumnya"}</b><p>Tersimpan di pusat dokumen HCIS</p></div><ChevronRight/></article></div> : <div className="service-form"><label>Jenis pengajuan<select defaultValue=""><option value="" disabled>Pilih jenis</option><option>Pengajuan baru</option><option>Koreksi / perubahan</option></select></label><label>Periode / tanggal<input type="date"/></label><label className="full">Keterangan<textarea placeholder={`Tuliskan detail ${title.toLowerCase()} Anda`}/></label></div>}<div className="service-detail-foot"><span><ShieldCheck/> Akun Core karyawan aktif</span><div><button className="ghost" onClick={close}>Tutup</button><button className="primary" onClick={() => action(isDocument ? `${title} berhasil dibuka` : `Form ${title.toLowerCase()} sudah aktif`)}>{isDocument ? "Lihat dokumen" : "Lanjutkan"}<ChevronRight size={15}/></button></div></div></section></div>;
 }
 
 function ApprovalsPage({onApprove}:{onApprove:(name:string)=>void}) { const requests=[{name:"Nadia Sari",type:"Cuti tahunan",detail:"22–24 Juli · 3 hari",initial:"NS",tone:"peach"},{name:"Dimas Pratama",type:"Lembur",detail:"18 Juli · 3 jam",initial:"DP",tone:"blue-bg"},{name:"Ayu Lestari",type:"Koreksi absensi",detail:"15 Juli · Lupa check-out",initial:"AY",tone:"green-bg"}]; return <section className="page-panel"><div className="page-heading"><span className="heading-icon mint"><ShieldCheck/></span><div><h2>Persetujuan tim</h2><p>Tiga pengajuan membutuhkan keputusan Anda.</p></div></div><div className="approval-list">{requests.map(r=><article key={r.name}><span className={`avatar ${r.tone}`}>{r.initial}</span><div><b>{r.name}</b><h3>{r.type}</h3><p>{r.detail}</p></div><button className="ghost">Detail</button><button className="primary" onClick={()=>onApprove(r.name)}><Check size={16}/> Setujui</button></article>)}</div></section> }
 
-function ProfilePage({user,initials}:{user:SessionUser;initials:string}) { return <section className="page-panel"><div className="profile-hero"><span className="avatar xl">{initials}</span><div><span>NRP {user.nrp ?? "—"}</span><h2>{user.name}</h2><p>{user.position ?? "Karyawan"} · {user.department ?? "Organisasi HCIS"}</p></div><button className="ghost">Ubah data</button></div><div className="profile-grid"><article><small>INFORMASI KERJA</small><dl><div><dt>Perusahaan</dt><dd>{user.company ?? "—"}</dd></div><div><dt>Departemen</dt><dd>{user.department ?? "—"}</dd></div><div><dt>Posisi</dt><dd>{user.position ?? "—"}</dd></div></dl></article><article><small>KONTAK & AKUN</small><dl><div><dt>Email kantor</dt><dd>{user.email}</dd></div><div><dt>NRP</dt><dd>{user.nrp ?? "—"}</dd></div><div><dt>Status data</dt><dd><span className="verified"><Check size={13}/> Terverifikasi HCIS</span></dd></div></dl></article></div></section> }
+function ProfilePage({user,initials}:{user:SessionUser;initials:string}) { return <section className="page-panel"><div className="profile-hero"><span className="avatar xl">{initials}</span><div><span>NRP {user.nrp ?? "—"}</span><h2>{user.name}</h2><p>{user.position ?? "Karyawan"} · {user.department ?? "Organisasi HCIS"}</p></div><button className="ghost">Ubah data</button></div><div className="profile-grid"><article><small>INFORMASI KERJA</small><dl><div><dt>Perusahaan</dt><dd>{user.company ?? "—"}</dd></div><div><dt>Departemen</dt><dd>{user.department ?? "—"}</dd></div><div><dt>Posisi</dt><dd>{user.position ?? "—"}</dd></div></dl></article><article><small>KONTAK & AKUN</small><dl><div><dt>Email kantor</dt><dd>{user.email}</dd></div><div><dt>NRP</dt><dd>{user.nrp ?? "—"}</dd></div><div><dt>Status akun</dt><dd><span className="verified"><Check size={13}/> Akun Core aktif</span></dd></div></dl></article></div></section> }
 
 function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const [login, setLogin] = useState("");
@@ -284,19 +302,19 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
       if (!response.ok) throw new Error(payload.message ?? "Login gagal.");
       onLogin(payload.user);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "HCIS tidak dapat dihubungi.");
+      setError(err instanceof Error ? err.message : "Layanan login Core belum dapat dihubungi.");
     } finally { setLoading(false); }
   };
 
   return <main className="login-page">
     <section className="login-brand-panel">
       <div className="login-brand"><CoreLogo/><b>core</b></div>
-      <div className="login-message"><span>EMPLOYEE PORTAL</span><h1>Satu tempat untuk<br/>semua kebutuhan kerja.</h1><p>Absensi, cuti, persetujuan, dan slip gaji Anda terhubung langsung dengan HCIS.</p><div className="login-features"><span><Check/>Data karyawan selalu sinkron</span><span><Check/>Aman untuk web dan mobile</span></div></div>
+      <div className="login-message"><span>EMPLOYEE PORTAL</span><h1>Satu tempat untuk<br/>semua kebutuhan kerja.</h1><p>Absensi, cuti, pembelajaran, dan layanan lain tampil sesuai role Core karyawan.</p><div className="login-features"><span><Check/>Data karyawan selalu sinkron</span><span><Check/>Aman untuk web dan mobile</span></div></div>
     </section>
     <section className="login-form-panel"><form onSubmit={submit}>
-      <div className="mobile-login-brand"><CoreLogo/><b>core</b></div><span className="login-kicker">SELAMAT DATANG</span><h2>Masuk ke Core</h2><p>Gunakan akun yang sama dengan HCIS.</p>
+      <div className="mobile-login-brand"><CoreLogo/><b>core</b></div><span className="login-kicker">EMPLOYEE PORTAL</span><h2>Masuk ke Core</h2><p>Gunakan akun Core karyawan yang diberikan perusahaan.</p>
       {error && <div className="login-error">{error}</div>}
-      <label>Email atau NRP<div className="login-input"><UserRound size={18}/><input autoFocus required value={login} onChange={(e)=>setLogin(e.target.value)} placeholder="nama@perusahaan.com" autoComplete="username"/></div></label>
+      <label>NRP atau email karyawan<div className="login-input"><UserRound size={18}/><input autoFocus required value={login} onChange={(e)=>setLogin(e.target.value)} placeholder="NRP atau nama@perusahaan.com" autoComplete="username"/></div></label>
       <label>Kata sandi<div className="login-input"><KeyRound size={18}/><input required type={showPassword?"text":"password"} value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="Masukkan kata sandi" autoComplete="current-password"/><button type="button" aria-label={showPassword?"Sembunyikan kata sandi":"Tampilkan kata sandi"} onClick={()=>setShowPassword(!showPassword)}>{showPassword?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
       <div className="login-options"><label><input type="checkbox"/> Ingat perangkat ini</label><button type="button">Lupa kata sandi?</button></div>
       <button className="login-submit" disabled={loading}>{loading?<><LoaderCircle className="spin" size={18}/> Memverifikasi...</>:<>Masuk <ChevronRight size={18}/></>}</button>
