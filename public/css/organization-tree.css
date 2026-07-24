@@ -1,0 +1,157 @@
+.sap-tree-shell {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 12px;
+}
+
+.sap-tree-header,
+.sap-tree-row {
+    display: grid;
+    grid-template-columns: minmax(360px, 1fr) 120px 130px 80px 90px 132px;
+    align-items: center;
+    min-width: 912px;
+}
+
+.sap-tree-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    min-height: 40px;
+    background: #f7f9fc;
+    border-bottom: 1px solid var(--border);
+    color: #728096;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .075em;
+    text-transform: uppercase;
+}
+
+.sap-tree-header > div,
+.sap-tree-row > div {
+    padding: 8px 11px;
+}
+
+.sap-tree {
+    list-style: none;
+    margin: 0;
+    padding-left: 22px;
+    position: relative;
+}
+
+.sap-tree-root {
+    padding-left: 0;
+}
+
+.sap-tree .sap-tree {
+    margin-left: 16px;
+}
+
+.sap-tree .sap-tree:before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 14px;
+    border-left: 1px solid #c8d0d7;
+}
+
+.sap-tree-item {
+    position: relative;
+}
+
+.sap-tree .sap-tree > .sap-tree-item:before {
+    content: "";
+    position: absolute;
+    left: -14px;
+    top: 16px;
+    width: 14px;
+    border-top: 1px solid #c8d0d7;
+}
+
+.sap-tree-row {
+    min-height: 40px;
+    border-bottom: 1px solid #edf0f4;
+    font-size: 12px;
+}
+
+.sap-tree-row:hover {
+    background: #f8fbff;
+}
+
+.sap-tree-company {
+    background: #eff6ff;
+    font-weight: 700;
+}
+
+.sap-tree-position-row {
+    color: #4d5964;
+}
+
+.sap-tree-object {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.sap-tree-toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 13px;
+    color: #6a6d70;
+    font-size: 9px;
+    flex: 0 0 auto;
+}
+
+.sap-tree-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    background: var(--brand-soft);
+    color: var(--sap-blue);
+    flex: 0 0 auto;
+}
+
+.sap-tree-position-icon {
+    background: #f7f9fa;
+    color: #5b738b;
+}
+
+.sap-tree-name {
+    font-weight: 600;
+}
+
+.sap-tree-level {
+    min-width: 56px;
+    color: #7a879a;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+.sap-tree-description {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    margin-top: 1px;
+}
+
+.sap-tree-code {
+    font-family: Consolas, "Courier New", monospace;
+    color: #46546a;
+}
+
+.sap-tree-actions .btn {
+    padding: 1px 4px;
+}
+
+.sap-tree-position-form {
+    min-width: 912px;
+    border-bottom: 1px solid #edf0f2;
+    background: #fbfcfd;
+    padding: 9px 12px 9px 58px;
+}

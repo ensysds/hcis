@@ -1,0 +1,1 @@
+@props(['title'=>null])<section {{ $attributes->merge(['class'=>'hcis-card']) }}>@if($title)<div class="card-heading">{{ $title }}<span>{{ $actions ?? '' }}</span></div>@endif<div class="card-body">{{ $slot }}</div></section>
