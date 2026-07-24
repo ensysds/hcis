@@ -1,0 +1,25 @@
+.employee-form-layout { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 18px; align-items: start; }
+.employee-form-nav { position: sticky; top: 88px; background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 9px; box-shadow: var(--shadow-sm); }
+.employee-form-nav .nav-link { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 11px; text-align: left; color: #637086; font-size: 12px; border-radius: 9px; transition: .18s ease; }
+.employee-form-nav .nav-link i { width: 17px; color: #8290a5; font-size: 14px; }
+.employee-form-nav .nav-link:hover { color: var(--brand); background: #f7faff; }
+.employee-form-nav .nav-link.active { background: var(--brand-soft); color: var(--brand); font-weight: 700; }
+.employee-form-nav .nav-link.active i { color: var(--brand); }
+.employee-form-content { min-width: 0; }
+.employee-form-actions { position: sticky; z-index: 10; bottom: 0; display: flex; justify-content: flex-end; gap: 8px; margin: 4px -18px -18px; padding: 13px 18px; border-top: 1px solid var(--border); background: rgba(255, 255, 255, .92); backdrop-filter: blur(10px); }
+.derived-field-note { padding: 11px 13px; border-radius: 9px; background: var(--brand-soft); color: #536779; font-size: 11px; }
+.employee-child-table input, .employee-child-table select { min-width: 130px; }
+.profile-section-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
+.profile-data-row { display: grid; grid-template-columns: minmax(130px, .8fr) minmax(0, 1.2fr); gap: 12px; padding: 10px 0; border-bottom: 1px solid #edf0f4; }
+.profile-data-row:last-child { border-bottom: 0; }
+.profile-data-row dt { color: #7a879a; font-size: 11px; font-weight: 700; }
+.profile-data-row dd { margin: 0; font-size: 12px; color: #354057; overflow-wrap: anywhere; }
+
+@media (max-width: 991px) {
+    .employee-form-layout { display: block; }
+    .employee-form-nav { position: static; margin-bottom: 14px; overflow-x: auto; }
+    .employee-form-nav .nav { flex-direction: row !important; }
+    .employee-form-nav .nav-link { width: auto; white-space: nowrap; }
+    .employee-form-actions { margin-left: -14px; margin-right: -14px; }
+    .profile-section-grid { grid-template-columns: 1fr; }
+}

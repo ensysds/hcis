@@ -1,0 +1,1 @@
+@props(['title','subtitle'=>null])<div class="page-header"><div><div class="breadcrumb-line">HCIS / {{ $title }}</div><h1>{{ $title }}</h1>@if($subtitle)<p>{{ $subtitle }}</p>@endif</div><div class="page-actions">{{ $actions ?? '' }}</div></div>

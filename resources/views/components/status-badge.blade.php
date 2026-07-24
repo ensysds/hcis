@@ -1,0 +1,1 @@
+@props(['status'])@php($tone=match($status){'approved','active','published','present','completed'=>'success','rejected','inactive','cancelled'=>'danger','submitted','in_review','pending'=>'warning',default=>'secondary'})<span class="badge text-bg-{{ $tone }} status-badge">{{ ucwords(str_replace('_',' ',$status)) }}</span>
