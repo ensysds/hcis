@@ -21,6 +21,9 @@ use Spatie\Permission\PermissionRegistrar;
 
 class DatabaseSeeder extends Seeder
 {
+    private const FIXED_SUPERADMIN_EMAIL = 'superadmin@ensys.id';
+    private const FIXED_SUPERADMIN_PASSWORD = '12345678';
+
     public function run(): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -29,21 +32,8 @@ class DatabaseSeeder extends Seeder
             HcisAccess::ensurePermissions();
             $super = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
             $super->syncPermissions(Permission::all());
-            $user = User::firstOrNew(['email' => 'superadmin.hcis@ensys.id']);
-            $user->fill([
-                'name' => $user->name ?: 'Super Administrator',
-                'nrp' => $user->nrp ?: 'SYSADMIN',
-                'is_active' => true,
-                'email_verified_at' => $user->email_verified_at ?: now(),
-            ]);
-            if (! $user->exists) {
-                $user->password = Hash::make(env('HCIS_SUPERADMIN_PASSWORD', 'password'));
-            }
-            $user->save();
-            $user->syncRoles(['super_admin']);
+            $this->ensureFixedSuperadminAccount($super);
             app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-            $this->call(CoreAccessSeeder::class);
 
             return;
         }
@@ -112,5 +102,65 @@ class DatabaseSeeder extends Seeder
         }
         DB::table('system_settings')->insert([['key' => 'company_name', 'value' => $company->name, 'type' => 'string', 'created_at' => now(), 'updated_at' => now()], ['key' => 'timezone', 'value' => 'Asia/Jakarta', 'type' => 'string', 'created_at' => now(), 'updated_at' => now()]]);
         $this->call(CoreAccessSeeder::class);
+    }
+
+    private function ensureFixedSuperadminAccount(Role $superRole): void
+    {
+        $company = Company::firstOrCreate(
+            ['code' => 'ENSYS'],
+            ['name' => 'PT Ensys Digital Solusi', 'tax_number' => null, 'address' => 'Indonesia']
+        );
+        $department = Department::firstOrCreate(
+            ['code' => 'SYS-HC'],
+            ['company_id' => $company->id, 'name' => 'Human Capital System']
+        );
+        $position = Position::firstOrCreate(
+            ['code' => 'SYSADMIN'],
+            ['department_id' => $department->id, 'name' => 'Super Administrator', 'headcount' => 1]
+        );
+        $this->call(CoreAccessSeeder::class);
+
+        $employee = Employee::firstOrNew(['email' => self::FIXED_SUPERADMIN_EMAIL]);
+        $employee->forceFill([
+            'nrp' => $employee->nrp ?: 'SYSADMIN',
+            'nik' => $employee->nik,
+            'full_name' => 'Super Administrator',
+            'phone' => $employee->phone,
+            'gender' => $employee->gender,
+            'birth_place' => $employee->birth_place ?: 'Jakarta',
+            'birth_date' => $employee->birth_date ?: '1990-01-01',
+            'address' => $employee->address ?: 'Indonesia',
+            'marital_status' => $employee->marital_status ?: 'single',
+            'employment_status' => 'permanent',
+            'join_date' => $employee->join_date ?: today(),
+            'company_id' => $company->id,
+            'department_id' => $department->id,
+            'position_id' => $position->id,
+            'status' => 'active',
+            'core_role' => 'director',
+            'core_password' => Hash::make(self::FIXED_SUPERADMIN_PASSWORD),
+            'core_is_active' => true,
+            'core_must_change_password' => false,
+            'core_password_reset_requested_at' => null,
+        ])->save();
+
+        $allRole = $company->coreAccessRoles()->where('code', 'HCIS-ALL')->first();
+        if ($allRole) {
+            $employee->coreAccessRoles()->syncWithoutDetaching([$allRole->id => ['scope_type' => 'self']]);
+        }
+
+        $user = User::updateOrCreate(
+            ['email' => self::FIXED_SUPERADMIN_EMAIL],
+            [
+                'employee_id' => $employee->id,
+                'name' => 'Super Administrator',
+                'nrp' => 'SYSADMIN',
+                'password' => Hash::make(self::FIXED_SUPERADMIN_PASSWORD),
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ]
+        );
+        $user->syncRoles([$superRole->name]);
+        $user->companies()->syncWithoutDetaching([$company->id => ['access_level' => 'company']]);
     }
 }
