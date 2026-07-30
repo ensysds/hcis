@@ -173,11 +173,9 @@ class CoreApiAuthTest extends TestCase
             ->assertJsonPath('data.module', 'claim')
             ->assertJsonPath('data.status', 'submitted');
 
-        $this->assertDatabaseHas('module_records', [
-            'company_id' => $company->id,
+        $this->assertDatabaseHas('claims', [
             'employee_id' => $employee->id,
-            'module' => 'claim',
-            'title' => 'Klaim parkir dari Core',
+            'category' => 'Klaim parkir dari Core',
             'status' => 'submitted',
         ]);
 

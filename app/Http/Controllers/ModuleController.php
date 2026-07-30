@@ -44,7 +44,31 @@ class ModuleController extends Controller
         }
         $data['module'] = HcisAccess::moduleRecordKey($module);
         $data['reference_no'] = strtoupper(substr($data['module'], 0, 3)).'-'.now()->format('YmdHis').'-'.random_int(10, 99);
-        $data['details'] = ['description' => $data['description'] ?? null];
+        $details = ['description' => $data['description'] ?? null, 'source' => 'hcis'];
+        if ($data['module'] === 'claim' && ! empty($data['employee_id'])) {
+            $details['native_claim_id'] = \Illuminate\Support\Facades\DB::table('claims')->insertGetId([
+                'employee_id' => $data['employee_id'],
+                'category' => $data['title'],
+                'claim_date' => $data['record_date'] ?? today(),
+                'amount' => $data['amount'] ?? 0,
+                'description' => $data['description'] ?? $data['title'],
+                'status' => $data['status'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+        if ($data['module'] === 'document' && ! empty($data['employee_id'])) {
+            $details['native_document_id'] = \Illuminate\Support\Facades\DB::table('employee_documents')->insertGetId([
+                'employee_id' => $data['employee_id'],
+                'type' => 'request',
+                'title' => $data['title'],
+                'description' => $data['description'] ?? null,
+                'start_date' => $data['record_date'] ?? today(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+        $data['details'] = $details;
         unset($data['description']);
         $data['created_by'] = $r->user()->id;
         ModuleRecord::create($data);
@@ -57,6 +81,12 @@ class ModuleController extends Controller
         $this->guard($module, $r, 'delete');
         abort_unless(in_array($record->module, HcisAccess::moduleRecordAliases($module), true), 404);
         CompanyAccess::authorize($r->user(), $record->company_id);
+        if ($record->module === 'claim' && data_get($record->details, 'native_claim_id')) {
+            \Illuminate\Support\Facades\DB::table('claims')->where('id', data_get($record->details, 'native_claim_id'))->delete();
+        }
+        if ($record->module === 'document' && data_get($record->details, 'native_document_id')) {
+            \Illuminate\Support\Facades\DB::table('employee_documents')->where('id', data_get($record->details, 'native_document_id'))->delete();
+        }
         $record->delete();
 
         return back()->with('success', 'Data diarsipkan.');

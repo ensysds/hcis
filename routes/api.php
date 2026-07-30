@@ -18,6 +18,8 @@ Route::prefix('core/v1')->group(function () {
         Route::post('/me/leave/requests', [CoreWorkspaceController::class, 'storeLeaveRequest'])->middleware('throttle:30,1');
         Route::get('/me/overtime/requests', [CoreWorkspaceController::class, 'overtimeRequests']);
         Route::post('/me/overtime/requests', [CoreWorkspaceController::class, 'storeOvertimeRequest'])->middleware('throttle:30,1');
+        Route::get('/me/approvals', [CoreWorkspaceController::class, 'approvals']);
+        Route::post('/me/approvals/{approvalRequest}/decision', [CoreWorkspaceController::class, 'decideApproval'])->middleware('throttle:30,1');
         Route::get('/me/modules/{module}/records', [CoreWorkspaceController::class, 'moduleRecords']);
         Route::post('/me/modules/{module}/records', [CoreWorkspaceController::class, 'storeModuleRecord'])->middleware('throttle:30,1');
     });

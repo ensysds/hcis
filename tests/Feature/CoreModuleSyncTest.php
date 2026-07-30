@@ -322,7 +322,7 @@ class CoreModuleSyncTest extends TestCase
         foreach (['people', 'payroll'] as $module) {
             $this->withToken($token)->postJson("/api/core/v1/me/modules/{$module}/records", [
                 'title' => "Read-only {$module}",
-            ])->assertNotFound();
+            ])->assertForbidden();
         }
 
         $this->withToken($token)->postJson('/api/core/v1/me/modules/bpjs/records', [

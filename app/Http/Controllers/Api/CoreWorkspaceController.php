@@ -35,6 +35,8 @@ class CoreWorkspaceController extends Controller
         $modules = CoreAccess::modulesFor($employee);
         $today = Attendance::where('employee_id', $employee->id)->whereDate('date', today())->first();
         $leaveRemaining = LeaveBalance::where('employee_id', $employee->id)
+            ->join('leave_types', 'leave_types.id', '=', 'leave_balances.leave_type_id')
+            ->where('leave_types.deduct_balance', true)
             ->where('year', now()->year)
             ->selectRaw('coalesce(sum(entitled - used), 0) as remaining')
             ->value('remaining');
@@ -43,6 +45,16 @@ class CoreWorkspaceController extends Controller
             ->where('status', 'published')
             ->latest('id')
             ->first();
+        $shift = DB::table('shift_schedules')
+            ->join('shifts', 'shifts.id', '=', 'shift_schedules.shift_id')
+            ->where('shift_schedules.employee_id', $employee->id)
+            ->whereDate('shift_schedules.date', today())
+            ->select(['shifts.name', 'shifts.start_time', 'shifts.end_time'])
+            ->first();
+        $teamIds = Employee::where('manager_id', $employee->id)->pluck('id');
+        $teamAttendance = Attendance::whereIn('employee_id', $teamIds)
+            ->whereDate('date', today())
+            ->get();
 
         return response()->json([
             'product' => ['key' => 'hcis', 'name' => 'Ensys HCIS'],
@@ -57,9 +69,38 @@ class CoreWorkspaceController extends Controller
                     'status' => $latestPayslip->status,
                     'published_at' => $latestPayslip->updated_at?->toIso8601String(),
                 ] : null,
+                'shift' => $shift ? [
+                    'name' => $shift->name,
+                    'start_time' => substr((string) $shift->start_time, 0, 5),
+                    'end_time' => substr((string) $shift->end_time, 0, 5),
+                ] : null,
+                'team' => [
+                    'total' => $teamIds->count(),
+                    'present' => $teamAttendance->whereIn('status', ['present', 'late'])->count(),
+                    'leave' => $teamAttendance->whereIn('status', ['leave', 'sick'])->count(),
+                    'not_recorded' => max(0, $teamIds->count() - $teamAttendance->count()),
+                ],
+                'pending_approvals' => $this->pendingApprovalsFor($employee)->count(),
+            ],
+            'activities' => $this->recentActivities($employee),
+            'notifications' => $this->coreNotifications($employee),
+            'reference_data' => [
+                'leave_types' => LeaveType::where(fn ($query) => $query
+                    ->whereNull('company_id')
+                    ->orWhere('company_id', $employee->company_id))
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get()
+                    ->map(fn (LeaveType $type) => [
+                        'id' => $type->id,
+                        'code' => $type->code,
+                        'name' => $type->name,
+                        'requires_attachment' => (bool) $type->requires_attachment,
+                    ])
+                    ->values(),
             ],
             'updated_at' => now()->toIso8601String(),
-            'version' => 1,
+            'version' => 2,
         ]);
     }
 
@@ -200,10 +241,33 @@ class CoreWorkspaceController extends Controller
 
     public function moduleRecords(Request $request, string $module): JsonResponse
     {
-        $employee = $this->authorizeModuleRecord($request, $module, 'view');
+        $moduleKey = $this->coreModuleKey($module);
+        $employee = $this->authorizeModule($request, $moduleKey, 'view');
+        $records = $this->serviceRecords($employee, $moduleKey);
+
+        if ($records !== null) {
+            $genericRecords = in_array($moduleKey, ['claim', 'document'], true)
+                ? collect()
+                : ModuleRecord::with(['company', 'employee'])
+                    ->where('employee_id', $employee->id)
+                    ->whereIn('module', HcisAccess::moduleRecordAliases($moduleKey))
+                    ->latest()
+                    ->limit(50)
+                    ->get()
+                    ->map(fn (ModuleRecord $record) => $this->moduleRecordPayload($record));
+            $records = $records->concat($genericRecords)
+                ->unique(fn (array $record) => $record['module'].'-'.$record['id'].'-'.($record['title'] ?? ''))
+                ->sortByDesc('record_date')
+                ->values()
+                ->take(50);
+
+            return response()->json(['data' => $records, 'updated_at' => now()->toIso8601String(), 'version' => 2]);
+        }
+
+        abort_unless($this->isModuleRecordBacked($moduleKey), 404, 'Modul ini belum tersedia untuk sinkronisasi.');
         $records = ModuleRecord::with(['company', 'employee'])
             ->where('employee_id', $employee->id)
-            ->whereIn('module', HcisAccess::moduleRecordAliases($module))
+            ->whereIn('module', HcisAccess::moduleRecordAliases($moduleKey))
             ->latest()
             ->limit(50)
             ->get()
@@ -214,7 +278,8 @@ class CoreWorkspaceController extends Controller
 
     public function storeModuleRecord(Request $request, string $module): JsonResponse
     {
-        $employee = $this->authorizeModuleRecord($request, $module, $this->moduleRecordWriteAbility($module));
+        $moduleKey = $this->coreModuleKey($module);
+        $employee = $this->authorizeModule($request, $moduleKey, $this->moduleRecordWriteAbility($moduleKey));
         $data = $request->validate([
             'title' => ['required', 'string', 'max:200'],
             'record_date' => ['nullable', 'date'],
@@ -225,10 +290,89 @@ class CoreWorkspaceController extends Controller
             'metadata' => ['nullable', 'array'],
         ]);
 
+        if ($moduleKey === 'claim') {
+            $claimId = DB::table('claims')->insertGetId([
+                'employee_id' => $employee->id,
+                'category' => $data['metadata']['category'] ?? $data['title'],
+                'claim_date' => $data['record_date'] ?? today(),
+                'amount' => $data['amount'] ?? 0,
+                'description' => $data['description'] ?? $data['title'],
+                'status' => 'submitted',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $claim = DB::table('claims')->find($claimId);
+            ModuleRecord::create([
+                'company_id' => $employee->company_id,
+                'module' => 'claim',
+                'reference_no' => $this->nextCoreReference('claim'),
+                'title' => $data['title'],
+                'employee_id' => $employee->id,
+                'record_date' => $claim->claim_date,
+                'amount' => $claim->amount,
+                'status' => $claim->status,
+                'details' => [
+                    'description' => $claim->description,
+                    'source' => 'core',
+                    'native_claim_id' => $claimId,
+                ],
+            ]);
+            activity('core-sync')->performedOn($employee)->withProperties(['module' => 'claim', 'claim_id' => $claimId, 'channel' => 'core'])->log('Reimbursement dibuat dari Core');
+
+            return response()->json([
+                'message' => 'Reimbursement berhasil disinkronkan ke HCIS.',
+                'data' => $this->normalizedRecord($claimId, 'claim', $data['title'], $claim->claim_date, $claim->amount, $claim->status, [
+                    'description' => $claim->description,
+                    'category' => $claim->category,
+                    'source' => 'core',
+                ]),
+            ], 201);
+        }
+
+        if ($moduleKey === 'document') {
+            $documentId = DB::table('employee_documents')->insertGetId([
+                'employee_id' => $employee->id,
+                'type' => $data['metadata']['type'] ?? 'request',
+                'title' => $data['title'],
+                'description' => $data['description'] ?? 'Permintaan dokumen dari Core.',
+                'start_date' => $data['record_date'] ?? today(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            ModuleRecord::create([
+                'company_id' => $employee->company_id,
+                'module' => 'document',
+                'reference_no' => $this->nextCoreReference('document'),
+                'title' => $data['title'],
+                'employee_id' => $employee->id,
+                'record_date' => $data['record_date'] ?? today(),
+                'status' => 'submitted',
+                'details' => [
+                    'description' => $data['description'] ?? 'Permintaan dokumen dari Core.',
+                    'source' => 'core',
+                    'native_document_id' => $documentId,
+                ],
+            ]);
+            activity('core-sync')->performedOn($employee)->withProperties(['module' => 'document', 'document_id' => $documentId, 'channel' => 'core'])->log('Permintaan dokumen dibuat dari Core');
+
+            return response()->json([
+                'message' => 'Permintaan dokumen berhasil disinkronkan ke HCIS.',
+                'data' => $this->normalizedRecord($documentId, 'document', $data['title'], $data['record_date'] ?? today(), null, 'submitted', [
+                    'description' => $data['description'] ?? null,
+                    'source' => 'core',
+                ]),
+            ], 201);
+        }
+
+        abort_unless(
+            $this->isModuleRecordBacked($moduleKey) || in_array($moduleKey, ['learning', 'performance'], true),
+            422,
+            'Modul ini hanya dapat dilihat dari Core.'
+        );
         $record = ModuleRecord::create([
             'company_id' => $employee->company_id,
-            'module' => HcisAccess::moduleRecordKey($module),
-            'reference_no' => $this->nextCoreReference($module),
+            'module' => HcisAccess::moduleRecordKey($moduleKey),
+            'reference_no' => $this->nextCoreReference($moduleKey),
             'title' => $data['title'],
             'employee_id' => $employee->id,
             'record_date' => $data['record_date'] ?? today(),
@@ -241,9 +385,77 @@ class CoreWorkspaceController extends Controller
                 'metadata' => $data['metadata'] ?? null,
             ], fn ($value) => ! blank($value)),
         ]);
-        activity('core-sync')->performedOn($record)->withProperties(['module' => $module, 'channel' => 'core'])->log('Record modul dibuat dari Core');
+        activity('core-sync')->performedOn($record)->withProperties(['module' => $moduleKey, 'channel' => 'core'])->log('Record modul dibuat dari Core');
 
         return response()->json(['message' => 'Data Core berhasil disinkronkan ke HCIS.', 'data' => $this->moduleRecordPayload($record->fresh(['company', 'employee']))], 201);
+    }
+
+    public function approvals(Request $request): JsonResponse
+    {
+        /** @var Employee $employee */
+        $employee = $request->user();
+        abort_unless(in_array($employee->core_role, ['manager', 'general_manager', 'director'], true), 403, 'Akun ini tidak memiliki akses persetujuan.');
+
+        return response()->json([
+            'data' => $this->pendingApprovalsFor($employee)->values(),
+            'updated_at' => now()->toIso8601String(),
+            'version' => 1,
+        ]);
+    }
+
+    public function decideApproval(Request $request, int $approvalRequest): JsonResponse
+    {
+        /** @var Employee $employee */
+        $employee = $request->user();
+        abort_unless(in_array($employee->core_role, ['manager', 'general_manager', 'director'], true), 403, 'Akun ini tidak memiliki akses persetujuan.');
+        $data = $request->validate([
+            'decision' => ['required', Rule::in(['approved', 'rejected'])],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $approval = DB::table('approval_requests')->find($approvalRequest);
+        abort_if(! $approval, 404, 'Pengajuan tidak ditemukan.');
+        $context = json_decode((string) $approval->context, true) ?: [];
+        abort_unless(
+            (int) ($context['manager_id'] ?? 0) === $employee->id
+                || ($employee->core_role === 'director' && (int) $approval->company_id === $employee->company_id),
+            403,
+            'Pengajuan ini bukan bagian dari tim Anda.'
+        );
+        abort_unless(in_array($approval->status, ['submitted', 'pending'], true), 422, 'Pengajuan ini sudah diproses.');
+
+        DB::transaction(function () use ($approval, $data, $employee) {
+            DB::table('approval_requests')->where('id', $approval->id)->update([
+                'status' => $data['decision'],
+                'completed_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('approval_steps')->where('approval_request_id', $approval->id)->where('status', 'pending')->update([
+                'approver_id' => $employee->user?->id,
+                'status' => $data['decision'],
+                'notes' => $data['notes'] ?? 'Diproses melalui Core.',
+                'acted_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $sourceTable = match ($approval->document_type) {
+                'leave' => 'leave_requests',
+                'overtime' => 'overtime_requests',
+                'claim' => 'claims',
+                default => null,
+            };
+            if ($sourceTable) {
+                DB::table($sourceTable)->where('id', $approval->reference_id)->update([
+                    'status' => $data['decision'],
+                    'updated_at' => now(),
+                ]);
+            }
+        });
+        activity('core-sync')->performedOn($employee)->withProperties([
+            'approval_request_id' => $approval->id,
+            'decision' => $data['decision'],
+            'channel' => 'core',
+        ])->log('Persetujuan diproses dari Core');
+
+        return response()->json(['message' => 'Keputusan berhasil disinkronkan ke HCIS.']);
     }
 
     public function checkIn(Request $request): JsonResponse
@@ -416,6 +628,262 @@ class CoreWorkspaceController extends Controller
             'created_at' => $record->created_at?->toIso8601String(),
             'updated_at' => $record->updated_at?->toIso8601String(),
         ];
+    }
+
+    private function serviceRecords(Employee $employee, string $module): ?\Illuminate\Support\Collection
+    {
+        return match ($module) {
+            'payroll' => DB::table('payslips')
+                ->join('payroll_periods', 'payroll_periods.id', '=', 'payslips.payroll_period_id')
+                ->where('payslips.employee_id', $employee->id)
+                ->orderByDesc('payroll_periods.start_date')
+                ->limit(12)
+                ->get()
+                ->map(fn ($row) => $this->normalizedRecord(
+                    $row->id,
+                    'payroll',
+                    'Slip gaji '.$row->name,
+                    $row->pay_date,
+                    $row->net_amount,
+                    $row->status,
+                    [
+                        'period' => $row->name,
+                        'gross_amount' => (float) $row->gross_amount,
+                        'deduction_amount' => (float) $row->deduction_amount,
+                        'net_amount' => (float) $row->net_amount,
+                    ]
+                )),
+            'claim' => DB::table('claims')
+                ->where('employee_id', $employee->id)
+                ->orderByDesc('claim_date')
+                ->limit(50)
+                ->get()
+                ->map(fn ($row) => $this->normalizedRecord(
+                    $row->id,
+                    'claim',
+                    $row->category,
+                    $row->claim_date,
+                    $row->amount,
+                    $row->status,
+                    ['description' => $row->description]
+                )),
+            'loan' => DB::table('loans')
+                ->where('employee_id', $employee->id)
+                ->orderByDesc('id')
+                ->limit(20)
+                ->get()
+                ->map(fn ($row) => $this->normalizedRecord(
+                    $row->id,
+                    'loan',
+                    $row->purpose,
+                    $row->created_at,
+                    $row->amount,
+                    $row->status,
+                    [
+                        'tenor' => $row->tenor,
+                        'installment_amount' => (float) $row->installment_amount,
+                        'outstanding_amount' => (float) $row->outstanding_amount,
+                    ]
+                )),
+            'document' => DB::table('employee_documents')
+                ->where('employee_id', $employee->id)
+                ->orderByDesc('id')
+                ->limit(50)
+                ->get()
+                ->map(fn ($row) => $this->normalizedRecord(
+                    $row->id,
+                    'document',
+                    $row->title,
+                    $row->start_date ?? $row->created_at,
+                    null,
+                    $row->file_path ? 'available' : 'submitted',
+                    ['description' => $row->description, 'type' => $row->type]
+                )),
+            'bpjs' => DB::table('employee_statutory_profiles')
+                ->where('employee_id', $employee->id)
+                ->orderByDesc('effective_date')
+                ->limit(10)
+                ->get()
+                ->map(fn ($row) => $this->normalizedRecord(
+                    $row->id,
+                    'bpjs',
+                    'Kepesertaan BPJS Kesehatan & Ketenagakerjaan',
+                    $row->effective_date,
+                    null,
+                    $row->bpjs_health_active && $row->bpjs_employment_active ? 'active' : 'inactive',
+                    [
+                        'bpjs_health_number' => $row->bpjs_health_number,
+                        'bpjs_employment_number' => $row->bpjs_employment_number,
+                        'tax_status' => $row->tax_status,
+                    ]
+                )),
+            'learning' => DB::table('learning_participants')
+                ->join('learning_programs', 'learning_programs.id', '=', 'learning_participants.learning_program_id')
+                ->where('learning_participants.employee_id', $employee->id)
+                ->orderByDesc('learning_programs.start_date')
+                ->limit(50)
+                ->get()
+                ->map(fn ($row) => $this->normalizedRecord(
+                    $row->id,
+                    'learning',
+                    $row->name,
+                    $row->start_date,
+                    $row->actual_cost,
+                    $row->status,
+                    [
+                        'provider' => $row->provider,
+                        'score' => $row->score !== null ? (float) $row->score : null,
+                        'passed' => $row->passed !== null ? (bool) $row->passed : null,
+                        'certificate_number' => $row->certificate_number,
+                    ]
+                )),
+            'performance' => DB::table('performance_reviews')
+                ->join('performance_cycles', 'performance_cycles.id', '=', 'performance_reviews.performance_cycle_id')
+                ->where('performance_reviews.employee_id', $employee->id)
+                ->orderByDesc('performance_cycles.end_date')
+                ->limit(20)
+                ->get()
+                ->map(fn ($row) => $this->normalizedRecord(
+                    $row->id,
+                    'performance',
+                    $row->name,
+                    $row->end_date,
+                    null,
+                    $row->status,
+                    [
+                        'final_score' => $row->final_score !== null ? (float) $row->final_score : null,
+                        'rating' => $row->rating,
+                        'strengths' => $row->strengths,
+                        'development_areas' => $row->development_areas,
+                    ]
+                )),
+            default => null,
+        };
+    }
+
+    private function normalizedRecord(
+        int $id,
+        string $module,
+        string $title,
+        mixed $recordDate,
+        mixed $amount,
+        string $status,
+        array $details = []
+    ): array {
+        return [
+            'id' => $id,
+            'module' => $module,
+            'title' => $title,
+            'record_date' => $recordDate ? Carbon::parse($recordDate)->toDateString() : null,
+            'amount' => $amount !== null ? (float) $amount : null,
+            'status' => $status,
+            'details' => $details,
+        ];
+    }
+
+    private function coreModuleKey(string $module): string
+    {
+        return match ($module) {
+            'claims' => 'claim',
+            'loans' => 'loan',
+            'documents' => 'document',
+            'benefit' => 'bpjs',
+            default => HcisAccess::moduleRecordKey($module),
+        };
+    }
+
+    private function recentActivities(Employee $employee): array
+    {
+        $records = collect();
+        Attendance::where('employee_id', $employee->id)->latest('date')->limit(5)->get()->each(function ($row) use ($records) {
+            $records->push([
+                'id' => 'attendance-'.$row->id,
+                'module' => 'attendance',
+                'date' => $row->date?->toDateString(),
+                'title' => 'Kehadiran '.($row->status === 'late' ? 'terlambat' : 'harian'),
+                'detail' => trim(($row->check_in_at?->format('H:i') ?? 'Belum masuk').' - '.($row->check_out_at?->format('H:i') ?? 'Berjalan')),
+                'status' => $row->status,
+            ]);
+        });
+        LeaveRequest::with('leaveType')->where('employee_id', $employee->id)->latest()->limit(3)->get()->each(function ($row) use ($records) {
+            $records->push([
+                'id' => 'leave-'.$row->id,
+                'module' => 'leave',
+                'date' => $row->created_at?->toDateString(),
+                'title' => $row->leaveType?->name ?? 'Pengajuan cuti',
+                'detail' => $row->start_date?->format('d M').' - '.$row->end_date?->format('d M Y').' · '.(float) $row->days.' hari',
+                'status' => $row->status,
+            ]);
+        });
+        DB::table('claims')->where('employee_id', $employee->id)->latest('claim_date')->limit(3)->get()->each(function ($row) use ($records) {
+            $records->push([
+                'id' => 'claim-'.$row->id,
+                'module' => 'claim',
+                'date' => $row->claim_date,
+                'title' => 'Reimbursement '.$row->category,
+                'detail' => 'Rp'.number_format((float) $row->amount, 0, ',', '.'),
+                'status' => $row->status,
+            ]);
+        });
+
+        return $records->sortByDesc('date')->take(8)->values()->all();
+    }
+
+    private function pendingApprovalsFor(Employee $employee): \Illuminate\Support\Collection
+    {
+        return DB::table('approval_requests')
+            ->where('company_id', $employee->company_id)
+            ->whereIn('status', ['submitted', 'pending'])
+            ->latest('submitted_at')
+            ->limit(100)
+            ->get()
+            ->filter(function ($row) use ($employee) {
+                $context = json_decode((string) $row->context, true) ?: [];
+
+                return (int) ($context['manager_id'] ?? 0) === $employee->id
+                    || ($employee->core_role === 'director' && (int) $row->company_id === $employee->company_id);
+            })
+            ->map(function ($row) {
+                $context = json_decode((string) $row->context, true) ?: [];
+
+                return [
+                    'id' => $row->id,
+                    'document_type' => $row->document_type,
+                    'employee_name' => $context['employee_name'] ?? 'Karyawan',
+                    'nrp' => $context['nrp'] ?? null,
+                    'amount' => $row->amount !== null ? (float) $row->amount : null,
+                    'status' => $row->status,
+                    'submitted_at' => $row->submitted_at,
+                    'channel' => $context['channel'] ?? 'hcis',
+                ];
+            });
+    }
+
+    private function coreNotifications(Employee $employee): array
+    {
+        if (! $employee->user) {
+            return [];
+        }
+
+        return DB::table('notifications')
+            ->where('notifiable_type', User::class)
+            ->where('notifiable_id', $employee->user->id)
+            ->latest('created_at')
+            ->limit(10)
+            ->get()
+            ->map(function ($row) {
+                $data = json_decode((string) $row->data, true) ?: [];
+
+                return [
+                    'id' => $row->id,
+                    'type' => $row->type,
+                    'message' => $data['message'] ?? 'Pembaruan HCIS tersedia.',
+                    'module' => $data['module'] ?? null,
+                    'read_at' => $row->read_at,
+                    'created_at' => $row->created_at,
+                ];
+            })
+            ->all();
     }
 
     private function nextCoreReference(string $module): string
