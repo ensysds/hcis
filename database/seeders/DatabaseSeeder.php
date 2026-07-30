@@ -120,8 +120,11 @@ class DatabaseSeeder extends Seeder
         );
         $this->call(CoreAccessSeeder::class);
 
-        $employee = Employee::firstOrNew(['email' => self::FIXED_SUPERADMIN_EMAIL]);
+        $employee = Employee::where('email', self::FIXED_SUPERADMIN_EMAIL)->first()
+            ?: Employee::where('nrp', 'SYSADMIN')->first()
+            ?: new Employee();
         $employee->forceFill([
+            'email' => self::FIXED_SUPERADMIN_EMAIL,
             'nrp' => $employee->nrp ?: 'SYSADMIN',
             'nik' => $employee->nik,
             'full_name' => 'Super Administrator',
@@ -149,17 +152,18 @@ class DatabaseSeeder extends Seeder
             $employee->coreAccessRoles()->syncWithoutDetaching([$allRole->id => ['scope_type' => 'self']]);
         }
 
-        $user = User::updateOrCreate(
-            ['email' => self::FIXED_SUPERADMIN_EMAIL],
-            [
-                'employee_id' => $employee->id,
-                'name' => 'Super Administrator',
-                'nrp' => 'SYSADMIN',
-                'password' => Hash::make(self::FIXED_SUPERADMIN_PASSWORD),
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]
-        );
+        $user = User::where('email', self::FIXED_SUPERADMIN_EMAIL)->first()
+            ?: User::where('nrp', 'SYSADMIN')->first()
+            ?: new User();
+        $user->forceFill([
+            'email' => self::FIXED_SUPERADMIN_EMAIL,
+            'employee_id' => $employee->id,
+            'name' => 'Super Administrator',
+            'nrp' => 'SYSADMIN',
+            'password' => Hash::make(self::FIXED_SUPERADMIN_PASSWORD),
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ])->save();
         $user->syncRoles([$superRole->name]);
         $user->companies()->syncWithoutDetaching([$company->id => ['access_level' => 'company']]);
     }
