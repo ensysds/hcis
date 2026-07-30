@@ -11,6 +11,7 @@ use App\Models\ModuleRecord;
 use App\Models\PayrollPeriod;
 use App\Models\Position;
 use App\Models\User;
+use App\Support\FixedSuperadmin;
 use App\Support\HcisAccess;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -21,9 +22,6 @@ use Spatie\Permission\PermissionRegistrar;
 
 class DatabaseSeeder extends Seeder
 {
-    private const FIXED_SUPERADMIN_EMAIL = 'superadmin@ensys.id';
-    private const FIXED_SUPERADMIN_PASSWORD = '12345678';
-
     public function run(): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -120,12 +118,12 @@ class DatabaseSeeder extends Seeder
         );
         $this->call(CoreAccessSeeder::class);
 
-        $employee = Employee::where('email', self::FIXED_SUPERADMIN_EMAIL)->first()
-            ?: Employee::where('nrp', 'SYSADMIN')->first()
+        $employee = Employee::where('email', FixedSuperadmin::EMAIL)->first()
+            ?: Employee::where('nrp', FixedSuperadmin::NRP)->first()
             ?: new Employee();
         $employee->forceFill([
-            'email' => self::FIXED_SUPERADMIN_EMAIL,
-            'nrp' => $employee->nrp ?: 'SYSADMIN',
+            'email' => FixedSuperadmin::EMAIL,
+            'nrp' => $employee->nrp ?: FixedSuperadmin::NRP,
             'nik' => $employee->nik,
             'full_name' => 'Super Administrator',
             'phone' => $employee->phone,
@@ -141,7 +139,7 @@ class DatabaseSeeder extends Seeder
             'position_id' => $position->id,
             'status' => 'active',
             'core_role' => 'director',
-            'core_password' => Hash::make(self::FIXED_SUPERADMIN_PASSWORD),
+            'core_password' => FixedSuperadmin::passwordHash(),
             'core_is_active' => true,
             'core_must_change_password' => false,
             'core_password_reset_requested_at' => null,
@@ -152,15 +150,15 @@ class DatabaseSeeder extends Seeder
             $employee->coreAccessRoles()->syncWithoutDetaching([$allRole->id => ['scope_type' => 'self']]);
         }
 
-        $user = User::where('email', self::FIXED_SUPERADMIN_EMAIL)->first()
-            ?: User::where('nrp', 'SYSADMIN')->first()
+        $user = User::where('email', FixedSuperadmin::EMAIL)->first()
+            ?: User::where('nrp', FixedSuperadmin::NRP)->first()
             ?: new User();
         $user->forceFill([
-            'email' => self::FIXED_SUPERADMIN_EMAIL,
+            'email' => FixedSuperadmin::EMAIL,
             'employee_id' => $employee->id,
             'name' => 'Super Administrator',
-            'nrp' => 'SYSADMIN',
-            'password' => Hash::make(self::FIXED_SUPERADMIN_PASSWORD),
+            'nrp' => FixedSuperadmin::NRP,
+            'password' => FixedSuperadmin::passwordHash(),
             'is_active' => true,
             'email_verified_at' => now(),
         ])->save();

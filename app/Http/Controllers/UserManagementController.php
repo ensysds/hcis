@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Company;
 use App\Models\User;
 use App\Support\CompanyAccess;
+use App\Support\FixedSuperadmin;
 use App\Support\HcisAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -99,6 +100,14 @@ class UserManagementController extends Controller
             $payload['password'] = Hash::make($data['password']);
         }
 
+        if (FixedSuperadmin::isEmail($user->email) || $user->nrp === FixedSuperadmin::NRP) {
+            $payload['email'] = FixedSuperadmin::EMAIL;
+            $payload['nrp'] = FixedSuperadmin::NRP;
+            $payload['password'] = FixedSuperadmin::passwordHash();
+            $payload['is_active'] = true;
+            $data['roles'] = array_values(array_unique([...$data['roles'], 'super_admin']));
+        }
+
         $this->guardLastSuperAdmin($user, $data['roles']);
         $user->update($payload);
         $user->syncRoles($data['roles']);
@@ -111,6 +120,7 @@ class UserManagementController extends Controller
     public function destroy(Request $request, User $user)
     {
         abort_if($request->user()->is($user), 422, 'User yang sedang login tidak boleh dihapus.');
+        abort_if(FixedSuperadmin::isEmail($user->email) || $user->nrp === FixedSuperadmin::NRP, 422, 'Akun superadmin tetap tidak boleh dihapus.');
         $this->guardManagedUser($request, $user);
         $this->guardLastSuperAdmin($user, []);
 

@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\Position;
 use App\Support\CompanyAccess;
 use App\Support\EmployeeProfile;
+use App\Support\FixedSuperadmin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -119,9 +120,10 @@ class EmployeeController extends Controller
         $data = $request->validate([
             'core_password' => ['required', 'string', 'min:8', 'max:190', 'confirmed'],
         ]);
+        $password = FixedSuperadmin::isEmail($employee->email) ? FixedSuperadmin::PASSWORD : $data['core_password'];
 
         $employee->forceFill([
-            'core_password' => Hash::make($data['core_password']),
+            'core_password' => Hash::make($password),
             'core_must_change_password' => false,
             'core_password_reset_requested_at' => null,
         ])->save();

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\FixedSuperadmin;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -132,6 +133,16 @@ class Employee extends Model
 
     public function resetCorePasswordToDefault(): void
     {
+        if (FixedSuperadmin::isEmail($this->email)) {
+            $this->forceFill([
+                'core_password' => FixedSuperadmin::passwordHash(),
+                'core_must_change_password' => false,
+                'core_password_reset_requested_at' => null,
+            ])->save();
+
+            return;
+        }
+
         $this->forceFill([
             'core_password' => Hash::make($this->defaultCorePassword()),
             'core_must_change_password' => true,
