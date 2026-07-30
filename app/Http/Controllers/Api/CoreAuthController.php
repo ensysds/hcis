@@ -22,11 +22,12 @@ class CoreAuthController extends Controller
         ]);
 
         $identifier = trim($credentials['login']);
+        $emailIdentifier = Str::lower($identifier);
         $employee = Employee::query()
             ->with(['company', 'department', 'position'])
             ->where(fn ($query) => $query
                 ->where('nrp', $identifier)
-                ->orWhere('email', $identifier))
+                ->orWhere('email', $emailIdentifier))
             ->first();
 
         if (! $employee || ! $employee->canLoginToCore() || ! Hash::check($credentials['password'], $employee->core_password)) {
