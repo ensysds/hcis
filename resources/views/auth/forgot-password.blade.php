@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
-    <link href="{{ asset('assets/libs/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/libs/bs/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ asset('css/hcis.css') }}" rel="stylesheet">
 </head>
 <body>

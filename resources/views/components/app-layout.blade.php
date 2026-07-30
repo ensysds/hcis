@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>{{ $title ?? 'HCIS' }} &middot; HCIS One</title>
     @php($assetVersion = fn (string $path) => file_exists(public_path($path)) ? filemtime(public_path($path)) : time())
-    <link href="{{ asset('assets/libs/bootstrap/bootstrap.min.css') }}?v={{ $assetVersion('assets/libs/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/libs/bs/bootstrap.min.css') }}?v={{ $assetVersion('assets/libs/bs/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/libs/bootstrap-icons/bootstrap-icons.min.css') }}?v={{ $assetVersion('assets/libs/bootstrap-icons/bootstrap-icons.min.css') }}" rel="stylesheet">
     <link href="{{ asset('css/hcis.css') }}?v={{ filemtime(public_path('css/hcis.css')) }}" rel="stylesheet">
     <link href="{{ asset('css/employee.css') }}?v={{ filemtime(public_path('css/employee.css')) }}" rel="stylesheet">
@@ -63,7 +63,7 @@
         {{ $slot }}
     </div>
 </main>
-<script src="{{ asset('assets/libs/bootstrap/bootstrap.bundle.min.js') }}?v={{ $assetVersion('assets/libs/bootstrap/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ asset('assets/libs/bs/bootstrap.bundle.min.js') }}?v={{ $assetVersion('assets/libs/bs/bootstrap.bundle.min.js') }}"></script>
 <script>document.getElementById('menuToggle')?.addEventListener('click',()=>document.getElementById('sidebar').classList.toggle('show'));</script>
 {{ $scripts ?? '' }}
 </body>
