@@ -4,11 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>{{ $title ?? 'HCIS' }} &middot; HCIS One</title>
-    <link href="{{ asset('vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
-    <link href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}" rel="stylesheet">
+    @php($assetVersion = fn (string $path) => file_exists(public_path($path)) ? filemtime(public_path($path)) : time())
+    <link href="{{ asset('vendor/bootstrap/bootstrap.min.css') }}?v={{ $assetVersion('vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}?v={{ $assetVersion('vendor/bootstrap-icons/bootstrap-icons.min.css') }}" rel="stylesheet">
     <link href="{{ asset('css/hcis.css') }}?v={{ filemtime(public_path('css/hcis.css')) }}" rel="stylesheet">
     <link href="{{ asset('css/employee.css') }}?v={{ filemtime(public_path('css/employee.css')) }}" rel="stylesheet">
     <link href="{{ asset('css/organization-tree.css') }}?v={{ filemtime(public_path('css/organization-tree.css')) }}" rel="stylesheet">
+    @vite('resources/js/app.js')
 </head>
 @php($sidebarGroups = \App\Support\HcisAccess::sidebarGroups())
 <body>
@@ -17,7 +19,7 @@
     <div class="topbar-content">
         <button class="btn btn-link menu-toggle d-lg-none me-1" id="menuToggle"><i class="bi bi-list fs-5"></i></button>
         <div class="top-search d-none d-md-flex"><i class="bi bi-search"></i><input aria-label="Cari menu atau karyawan" placeholder="Cari menu atau karyawan..."></div>
-        <div class="ms-auto d-flex align-items-center gap-2 gap-md-3">
+        <div class="topbar-actions">
             @can('approval.view')
                 <a href="{{ route('approvals.index') }}" class="top-icon" title="Approval"><i class="bi bi-bell"></i></a>
             @endcan
@@ -61,7 +63,7 @@
         {{ $slot }}
     </div>
 </main>
-<script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}?v={{ $assetVersion('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
 <script>document.getElementById('menuToggle')?.addEventListener('click',()=>document.getElementById('sidebar').classList.toggle('show'));</script>
 {{ $scripts ?? '' }}
 </body>

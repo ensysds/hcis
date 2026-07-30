@@ -13,15 +13,15 @@
             @endcan
         </div>
     </section>
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-xl-3"><x-stat-tile label="Headcount Aktif" :value="$headcount" icon="people" hint="Karyawan aktif saat ini"/></div>
-        <div class="col-6 col-xl-3"><x-stat-tile label="Hadir Hari Ini" :value="$present" icon="person-check" tone="success" hint="Kehadiran tercatat"/></div>
-        <div class="col-6 col-xl-3"><x-stat-tile label="Menunggu Approval" :value="$pending" icon="hourglass-split" tone="warning" hint="Perlu tindak lanjut"/></div>
-        <div class="col-6 col-xl-3"><x-stat-tile label="Payroll Period" :value="$periods->count()" icon="wallet2" tone="info" hint="Periode payroll terbaru"/></div>
+    <div class="dashboard-stats">
+        <x-stat-tile label="Headcount Aktif" :value="$headcount" icon="people" hint="Karyawan aktif saat ini"/>
+        <x-stat-tile label="Hadir Hari Ini" :value="$present" icon="person-check" tone="success" hint="Kehadiran tercatat"/>
+        <x-stat-tile label="Menunggu Approval" :value="$pending" icon="hourglass-split" tone="warning" hint="Perlu tindak lanjut"/>
+        <x-stat-tile label="Payroll Period" :value="$periods->count()" icon="wallet2" tone="info" hint="Periode payroll terbaru"/>
     </div>
-    <div class="row g-3">
-        <div class="col-lg-8"><x-card title="Distribusi Karyawan"><div class="chart-wrap"><canvas id="headcountChart"></canvas></div></x-card></div>
-        <div class="col-lg-4">
+    <div class="dashboard-main-grid">
+        <x-card title="Distribusi Karyawan"><div class="chart-wrap"><canvas id="headcountChart"></canvas></div></x-card>
+        <div>
             <x-card title="Payroll Terbaru">
                 <div class="payroll-list">
                     @forelse($periods as $period)
@@ -38,13 +38,26 @@
         </div>
     </div>
     <x-slot:scripts>
-        <script src="{{ asset('vendor/chartjs/chart.umd.js') }}"></script>
         <script>
-            new Chart(document.getElementById('headcountChart'), {
-                type: 'bar',
-                data: {labels: @json($departments->keys()), datasets: [{label: 'Karyawan', data: @json($departments->values()), backgroundColor: '#3b82f6', hoverBackgroundColor: '#2563eb', borderRadius: 7, borderSkipped: false, barThickness: 30}]},
-                options: {maintainAspectRatio: false, plugins: {legend: {display: false}, tooltip: {backgroundColor: '#172033', padding: 11, cornerRadius: 8, displayColors: false}}, scales: {x: {grid: {display: false}, border: {display: false}, ticks: {color: '#7a879a', font: {size: 10}}}, y: {beginAtZero: true, border: {display: false}, grid: {color: '#edf0f4'}, ticks: {precision: 0, color: '#7a879a', font: {size: 10}}}}}
-            });
+            const renderHeadcountChart = () => {
+                const canvas = document.getElementById('headcountChart');
+
+                if (!canvas || window.Chart.getChart(canvas)) {
+                    return;
+                }
+
+                new window.Chart(canvas, {
+                    type: 'bar',
+                    data: {labels: @json($departments->keys()), datasets: [{label: 'Karyawan', data: @json($departments->values()), backgroundColor: '#3b82f6', hoverBackgroundColor: '#2563eb', borderRadius: 7, borderSkipped: false, barThickness: 30}]},
+                    options: {maintainAspectRatio: false, plugins: {legend: {display: false}, tooltip: {backgroundColor: '#172033', padding: 11, cornerRadius: 8, displayColors: false}}, scales: {x: {grid: {display: false}, border: {display: false}, ticks: {color: '#7a879a', font: {size: 10}}}, y: {beginAtZero: true, border: {display: false}, grid: {color: '#edf0f4'}, ticks: {precision: 0, color: '#7a879a', font: {size: 10}}}}}
+                });
+            };
+
+            if (window.Chart) {
+                renderHeadcountChart();
+            } else {
+                window.addEventListener('hcis:ready', renderHeadcountChart, {once: true});
+            }
         </script>
     </x-slot:scripts>
 </x-app-layout>
